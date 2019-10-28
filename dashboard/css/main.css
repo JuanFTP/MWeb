@@ -133,7 +133,6 @@
 			}
 
 			.menu .elemento a .notificaciones_elemento {
-				color: inherit;
 				text-align: center;
 				font-weight: bold;
 				height: 30px;
@@ -144,6 +143,7 @@
 				border-radius: 100%;
 			}
 				 .menu .elemento a .notificaciones_elemento p {
+					color: inherit;
 					display: block;
 					line-height: 30px;
 				 }
@@ -152,3 +152,9 @@
 		width: calc(100% - var(--size-ancho-menu-lateral));
 		height: 100%;
 	}
+
+/*Estados y colores*/
+.activo_bg {
+	color: var(--color-claro);
+	background-color: var(--color-primario);
+}
