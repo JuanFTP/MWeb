@@ -14,43 +14,55 @@
 	--color-terciario: #000000;
 	--color-claro: #FFFFFF;
 	--color-claro-contraste: #FCFCFC;
-	--color-oscuro: #111111;
-	--color-oscuro-contraste: #222222;
+	--color-oscuro: #787993;
+	--color-oscuro-contraste: #444444;
 
 	/*Colores generales como recursos*/
-	--color-base: #444444;
-	--color-base: #444444;
-	--color-base: #444444;
-	--color-base: #444444;
-	--color-base: #444444;
-	--color-base: #444444;
-	--color-base: #444444;
-	--color-base: #444444;
-	--color-base: #444444;
-	--color-base: #444444;
-	--color-base: #444444;
-	--color-base: #444444;
-	--color-base: #444444;
-	--color-base: #444444;
-	--color-base: #444444;
-	--color-base: #444444;
-	--color-base: #444444;
-	--color-base: #444444;
-	--color-base: #444444;
-	--color-base: #444444;
-	--color-base: #444444;
-	--color-base: #444444;
-	--color-base: #444444;
-	--color-base: #444444;	
+	--color-base-01: #F18DEA;
+	--color-base-02: #F45C78;
+	--color-base-03: #FDEA91;
+	--color-base-04: #FF92B0;
+	--color-base-05: #DAC4FD;
+	--color-base-06: #94C5FD;
+	--color-base-07: #FCFAFA;
+	--color-base-08: #ECEEEF;
+	--color-base-09: #85EFFE;
+	--color-base-10: #68ABFF;
+	--color-base-11: #84F1BE;
+	--color-base-12: #97C4E5;
+	--color-base-13: #85F6B6;
+	--color-base-14: #8ED5F0;
+	--color-base-15: #AEBBF4;
+	--color-base-16: #F0848C;
+	--color-base-17: #F8C292;
+	--color-base-18: #D782E4;
+	--color-base-19: #CEF97C;
+	--color-base-20: #99E79E;
+	--color-base-21: #F7CF68;
+	--color-base-22: #FDA284;
+	--color-base-23: #A4C7FC;
+	--color-base-24: #C0E8FB;
 
 	/*Dimensiones*/
-	--size-ancho-menu-lateral: 300px;
+	--size-ancho-menu-lateral: 250px;
+	--size-alto-titulo-marca: 100px;
 	--size-border-radius: 10px;
-	--size-alto-campo: 40px;
-	--size-alto-boton: 40px;
-	--size-margen-interno-u1: 10px;
-	--size-margen-interno-u3: 30px;
-	--size-margen-externo: 10px;
+	--size-u1: 10px;
+	--size-u2: 20px;
+	--size-u3: 30px;
+	--size-u4: 40px;
+	--size-u5: 50px;
+	--size-u6: 60px;
+	--size-u7: 70px;
+	--size-u8: 80px;
+	--size-u9: 90px;
+	--size-u0: 100px;
+	--size-fuente-lvl-01: 19px;
+	--size-fuente-lvl-02: 17px;
+	--size-fuente-lvl-03: 15px;
+	--size-fuente-lvl-04: 13px;
+	--size-fuente-normal: 12px;
+	--size-fuente-legal: 10px;
 
 	/*Sombras*/
 	--sombra-insensidad: rgba(0, 0, 0, 0.25);
@@ -58,12 +70,13 @@
 
 	/*Tamaño de bordes*/
 	--borde-size-general: 1px;
-	--borde-color-general: rgba(0, 0, 0, 0.025);
+	--borde-color-general: rgba(0, 0, 0, 0.1);
 
 	/*Transiciones*/
 	--transicion: all ease 0.25s;
 }
 
+/*Generales*/
 .alineador_horizontal {
 	display: flex;
 	width: 100%;
@@ -91,7 +104,7 @@
 		.espacio_marca {
 			display: block;
 			height: 100px;
-			padding: var(--size-margen-interno-u3);
+			padding: var(--size-u3);
 		}
 
 			.espacio_marca .contenedor_logotipo {
@@ -115,41 +128,36 @@
 		.menu {
 			display: block;
 			width: var(--size-ancho-menu-lateral);
-			height: calc(100% - 100px);
+			height: calc(100% - var(--size-alto-titulo-marca));
 			overflow-y: auto;
 			overflow-x: hidden;
 		}
 
-			.menu .elemento,
 			.menu .elemento {
 				display: block;
 				height: 60px;
 				width: 100%;
 				line-height: 40px;
-				padding: var(--size-margen-interno-u1) var(--size-margen-interno-u3);
+				padding: var(--size-u1) var(--size-u3);
 				transition: var(--transicion);
 			}
 
-			.menu .elemento:hover,
 			.menu .elemento:hover {
 				background-color: var(--color-claro-contraste);
 			}
 
-			.menu .elemento a,
 			.menu .elemento a {
-				display: block;
 				color: inherit;
+				display: block;
 				height: 100%;
 				width: 100%;
 				text-decoration: none;
 			}
 
-			.menu .elemento a .icono_elemento,
 			.menu .elemento a .icono_elemento {
 				text-align: center;
 				height: 40px;
 				width: 40px;
-				color: inherit;
 			}
 
 			.menu .elemento a .titulo_elemento {
@@ -169,7 +177,6 @@
 				border-radius: 100%;
 			}
 				 .menu .elemento a .notificaciones_elemento p {
-					color: inherit;
 					display: block;
 					line-height: 30px;
 				 }
@@ -178,6 +185,26 @@
 		width: calc(100% - var(--size-ancho-menu-lateral));
 		height: 100%;
 	}
+
+		.header {
+			display: block;
+			width: 100%;
+			height: var(--size-alto-titulo-marca);
+			padding-top: var(--size-u2);
+		}
+
+			.header .componentes_header {
+				display: block;
+				width: calc(100% - var(--size-u8));
+				height: calc(var(--size-alto-titulo-marca) - var(--size-u4));
+				margin-left: var(--size-u4);
+			}
+
+		.contenedor_secciones {
+			display: block;
+			width: 100%;
+			height: calc(100% - var(--size-alto-titulo-marca));
+		}
 
 /*Estados y colores*/
 .activo_bg {
