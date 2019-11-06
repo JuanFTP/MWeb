@@ -181,6 +181,12 @@
 					line-height: 30px;
 				 }
 
+	/*Estados y colores*/
+	.activo_bg {
+		color: var(--color-claro);
+		background-color: var(--color-primario);
+	}
+
 	.contenedor_datos {
 		width: calc(100% - var(--size-ancho-menu-lateral));
 		height: 100%;
@@ -200,14 +206,57 @@
 				margin-left: var(--size-u4);
 			}
 
+				.header .componentes_header .datos_usuario {
+					height: 100%;
+					overflow: hidden;
+				}
+
+					.header .componentes_header .datos_usuario .icono_usuario {
+						cursor: pointer;
+						user-select: none;
+						height: 100%;
+						width: calc(var(--size-alto-titulo-marca) - var(--size-u4));
+						line-height: calc(var(--size-alto-titulo-marca) - var(--size-u4));
+						text-align: center;
+						overflow: hidden;
+					}
+
+						.header .componentes_header .datos_usuario .icono_usuario img {
+							display: block;
+							width: 100%;
+						}
+
+					.header .componentes_header .datos_usuario .informacion_usuario {
+						width: calc(var(--size-u0) * 2);
+						margin-left: var(--size-u2);
+					}
+
+						.header .componentes_header .datos_usuario .informacion_usuario p {
+							display: block;
+							width: 100%;
+							line-height: calc((var(--size-alto-titulo-marca) - var(--size-u6))/2);
+						}
+						
+						.header .componentes_header .datos_usuario .informacion_usuario p:first-child {
+							margin-top: var(--size-u1);
+						}
+
+					.header .componentes_header .datos_usuario .icono_herramientas {
+						width: var(--size-u1);
+						line-height: calc(var(--size-alto-titulo-marca) - var(--size-u4));
+						text-align: center;
+					}
+
+				.header .componentes_header .busqueda {
+					background-color: blue;
+				}
+
+				.header .componentes_header .notificaciones {
+					background-color: green;
+				}
+
 		.contenedor_secciones {
 			display: block;
 			width: 100%;
 			height: calc(100% - var(--size-alto-titulo-marca));
 		}
-
-/*Estados y colores*/
-.activo_bg {
-	color: var(--color-claro);
-	background-color: var(--color-primario);
-}
