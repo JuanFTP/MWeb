@@ -66,7 +66,8 @@
 
 	/*Sombras*/
 	--sombra-insensidad: rgba(0, 0, 0, 0.25);
-	--sombra-derecha: 0px 0px 5px var(--sombra-insensidad);
+	--sombra-derecha: 0px 0px 6px var(--sombra-insensidad);
+	--sombra: 0px 0px 6px 0px var(--sombra-insensidad);
 
 	/*Tamaño de bordes*/
 	--borde-size-general: 1px;
@@ -83,13 +84,26 @@
 	height: 100%;
 }
 
-.distribuir_horizontalmente {
-	align-items: center;
-	justify-content: space-between;
+	.distribuir_horizontalmente {
+		align-items: center;
+		justify-content: space-between;
+	}
+
+.alineador_malla {
+	display: grid;
+	width: 100%;
+	height: 100%;
+	grid-template-columns: repeat(12, 1fr);
+	grid-template-rows: repeat(12, 1fr);
+	grid-gap: var(--size-u2);
 }
 
 .borde_inferior {
 	border-bottom: var(--borde-size-general) solid var(--borde-color-general);
+}
+
+.sombra_all {
+	box-shadow: var(--sombra);
 }
 
 .contenedor_general {
@@ -304,4 +318,50 @@
 			display: block;
 			width: 100%;
 			height: calc(100% - var(--size-alto-titulo-marca));
+			padding: var(--size-u2) var(--size-u4) var(--size-u2) var(--size-u4);
+			overflow-x: hidden;
+			overflow-y: auto;
 		}
+
+			.contenedor_secciones .elemento {
+				border-radius: var(--size-border-radius);
+				padding: var(--size-u1);
+			}
+
+			.contenedor_secciones .elemento .titulo_elemento {
+				height: var(--size-u2);
+			}
+
+				.contenedor_secciones .elemento.grafico_datos {
+					grid-column: 1 / 9;
+					grid-row: 1 / 7;
+				}
+
+				.contenedor_secciones .elemento.trafico_datos {
+					grid-column: 9 / 13;
+					grid-row: 1 / 7;
+				}
+
+				.contenedor_secciones .elemento.estado_de_usuarios {
+					grid-column: 1 / 10;
+					grid-row: 7 / 13;
+				}
+
+				.contenedor_secciones .elemento.bloque_informativo {
+
+				}
+
+					.contenedor_secciones .elemento.bloque_informativo.uno {
+						grid-column: 10 / 13;
+						grid-row: 7 / 9;
+					}
+
+					.contenedor_secciones .elemento.bloque_informativo.dos {
+						grid-column: 10 / 13;
+						grid-row: 9 / 11;
+					}
+
+					.contenedor_secciones .elemento.bloque_informativo.tres {
+						grid-column: 10 / 13;
+						grid-row: 11 / 13;
+					}

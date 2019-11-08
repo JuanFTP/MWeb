@@ -25,6 +25,11 @@
 	font-size: var(--size-fuente-legal);
 }
 
+/*Estilos del texto*/
+.texto_estilo_negritas {
+	font-weight: 600;
+}
+
 /*Gradientes*/
 .color_gradiente_01 {
 	background: var(--color-base-01);
