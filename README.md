@@ -1,2 +1,2 @@
 # MWeb
-Maquetas Web, algunas basadas en diseños
+Maquetado de Dasboard basado en un Mockup propuesto.
