@@ -328,40 +328,62 @@
 				padding: var(--size-u1);
 			}
 
-			.contenedor_secciones .elemento .titulo_elemento {
-				height: var(--size-u2);
+				.contenedor_secciones .elemento .titulo_elemento {
+					height: var(--size-u2);
+				}
+				
+					.contenedor_secciones .elemento .titulo_elemento .menu_elemento {
+						cursor: pointer;
+						user-select: none;
+					}
+
+				.contenedor_secciones .elemento .cuerpo_elemento {
+					display: block;
+					width: 100%;
+					height: calc(100% - var(--size-u2));
+				}
+
+			.contenedor_secciones .elemento.grafico_datos {
+				grid-column: 1 / 9;
+				grid-row: 1 / 7;
 			}
 
-				.contenedor_secciones .elemento.grafico_datos {
-					grid-column: 1 / 9;
-					grid-row: 1 / 7;
+			.contenedor_secciones .elemento.trafico_datos {
+				grid-column: 9 / 13;
+				grid-row: 1 / 7;
+			}
+
+			.contenedor_secciones .elemento.estado_de_usuarios {
+				grid-column: 1 / 10;
+				grid-row: 7 / 13;
+			}
+
+			.contenedor_secciones .elemento.bloque_informativo {
+
+			}
+
+				.contenedor_secciones .elemento.bloque_informativo.uno {
+					grid-column: 10 / 13;
+					grid-row: 7 / 9;
 				}
 
-				.contenedor_secciones .elemento.trafico_datos {
-					grid-column: 9 / 13;
-					grid-row: 1 / 7;
+				.contenedor_secciones .elemento.bloque_informativo.dos {
+					grid-column: 10 / 13;
+					grid-row: 9 / 11;
 				}
 
-				.contenedor_secciones .elemento.estado_de_usuarios {
-					grid-column: 1 / 10;
-					grid-row: 7 / 13;
+				.contenedor_secciones .elemento.bloque_informativo.tres {
+					grid-column: 10 / 13;
+					grid-row: 11 / 13;
 				}
-
-				.contenedor_secciones .elemento.bloque_informativo {
-
-				}
-
-					.contenedor_secciones .elemento.bloque_informativo.uno {
-						grid-column: 10 / 13;
-						grid-row: 7 / 9;
-					}
-
-					.contenedor_secciones .elemento.bloque_informativo.dos {
-						grid-column: 10 / 13;
-						grid-row: 9 / 11;
-					}
-
-					.contenedor_secciones .elemento.bloque_informativo.tres {
-						grid-column: 10 / 13;
-						grid-row: 11 / 13;
-					}
+	
+	.grafico {
+		display: block;
+		height: 100%;
+		width: 100%;
+	}
+		.grafico canvas {
+			display: block;
+			width: 100%;
+			height: 100%;
+		}
