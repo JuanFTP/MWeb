@@ -1,0 +1,1546 @@
+<?php
+	require("php/_conexion.php");
+	/*ID del pilón*/
+	$idpilon = NULL;
+	/*Datos del pilón*/
+	$datosPilon = NULL;
+	/*N° de pilones válidos*/
+	$numPilonVal = NULL;
+	/*N° de subclases asociados al pilón*/
+	$numSub = NULL;
+	/*Datos de las subclases asociadas*/
+	$subPilon = NULL;
+	/*Estado del pilon*/
+	$edo_pilon = NULL;
+	/*Tabla de salidas asociada*/
+	$tab_sal = NULL;
+	/*Fecha de hechura*/
+	$f_hechura = NULL;
+	/*Ciclo de volteo*/
+	$ciclo = NULL;
+	/*Fecha del ultimo volteo*/
+	$fuv = NULL;
+	if(!isset($_GET['idpilon'])) {
+		echo "<script>window.location = 'Pilones.php?error=var';</script>";
+	} else {
+		$idpilon = $_GET['idpilon'];
+		/*Verificar si el pilón existe*/
+		conectar();
+			$exPilon = mysqli_num_rows(mysqli_query($conexion, "select * from pilon where idpilon = $idpilon;"));
+			if($exPilon == 1) {
+				/*
+					Verificar que la fase sea:
+					3: Registro completo y en forma
+					4: Es un pilón cobinado
+					5: Forma parte de un pilon conbinado
+					6: Fue terminado [Modo solo lectura]
+				*/
+				$datosPilon = mysqli_fetch_assoc(mysqli_query($conexion, "select pilon.*, area.nombre as 'area', clase.nombre as 'clase' from pilon, area, clase where (pilon.idarea = area.idarea) and (pilon.idclase = clase.idclase) and (pilon.idpilon = $idpilon);"));
+				$edo_pilon = $datosPilon["estado"];
+				$f_hechura = $datosPilon["f_hechura"];
+				$fuv = $datosPilon["fuv"];
+				$ciclo = $datosPilon["ciclo"];
+				$tab_sal = $datosPilon["tab_sal"];
+				/*Número de pilones válidos para funciones adiconales*/
+				$numPilonVal = mysqli_num_rows(mysqli_query($conexion, "select * from pilon where (estado between 2 and 4);"));
+				/*Validar estado del pilón*/
+				if(!(($datosPilon["estado"] >= 3) && ($datosPilon["estado"] <= 6))) {
+					echo "<script>window.location = 'Pilones.php?error=fase';</script>";
+				} else {
+					$numSub = mysqli_num_rows(mysqli_query($conexion, "select * from pilon_subclase where idpilon = $idpilon;"));
+					$subPilon = mysqli_query($conexion, "select pilon_subclase.*, clase.nombre as 'clase', subclase.nombre as 'subclase', procedencia.nombre as 'pro' from pilon_subclase, clase, subclase, procedencia where ((subclase.idclase = clase.idclase)and (pilon_subclase.idpro = procedencia.idpro) and (pilon_subclase.idsub = subclase.idsub)) and (idpilon = $idpilon);");
+				}
+				/*Obtener la lista de pilones si es que este es un pilón combinado*/
+				$con_pilones = NULL;
+				if($edo_pilon == 4) {
+					/*Obtener los pilones que están vinculados al pilon*/
+					$con_pilones = mysqli_query($conexion, "select pilon.idpilon, pilon.nombre as 'pilon', area.nombre as 'area', clase.nombre as 'clase' from pilon, area, clase where (pilon.idclase = clase.idclase and pilon.idarea = area.idarea) and (idpilon = any (select idpilon_esc from pilon_combinado where idpilon = $idpilon));");
+				} elseif($edo_pilon == 5) {
+					/*Obtener el pilón al cual está combinado*/
+					$con_pilones = mysqli_query($conexion, "select pilon.idpilon, pilon.nombre as 'pilon', area.nombre as 'area', clase.nombre as 'clase' from pilon, area, clase where (pilon.idclase = clase.idclase and pilon.idarea = area.idarea) and (idpilon = any (select idpilon from pilon_combinado where idpilon_esc = $idpilon));");
+				}
+			} else {
+				echo "<script>window.location = 'Pilones.php?error=noexiste';</script>";
+			}
+		desconectar();
+	}
+?>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+	<title><?php echo "PILÓN | ".$datosPilon['nombre']; ?></title>
+	<?php
+		include("general/meta.php");
+	?>
+	<!--SCRIPTS-->
+	<script type="text/javascript" src="js/Chart.js/Chart.min.js"></script>
+	<script src="js/Palette/palette.js"></script>
+</head>
+<body>
+	<?php
+		include("general/header.php");
+	?>
+
+<script type="text/javascript">
+	$(document).ready(function() {
+		/*Vectores de fechas*/
+		var dias = ['DOMINGO', 'LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO'];
+		var meses = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+		/*Variables generales de php*/
+		var idpilon = <?php echo $idpilon; ?>;
+		var estado = <?php echo $edo_pilon; ?>;
+		var tab_sal = '<?php echo $tab_sal; ?>';
+		var f_hechura = '<?php echo $f_hechura; ?>'.split('-').join('/');
+		var ciclo = <?php echo $ciclo; ?>;
+		var fuv = '<?php echo $fuv; ?>'.split('-').join('/');
+		var rol = '<?php echo $_SESSION['rol']; ?>';
+		var edo_sistema = '<?php echo $_SESSION['estado']; ?>';
+		/*Variable de datos generales*/
+		var conf = new Object();
+		/*Variable que almacena los datos de retorno de una consulta*/
+		var datosFil = new Object();
+		/*Equivalencia en milisegundos de un día*/
+		var valor_dia = parseInt(86400000);
+		//Vars para el gráfico de registros
+		var areaRegs = document.getElementById('graphRegs').getContext('2d');
+		var graphRegs = null;
+		var configRegs = {
+			responsive: true,
+			responsiveAnimationDuration: 500,
+			maintainAspectRatio: false,
+			legend: {
+				position: 'top',
+				onClick: function(legend) {}
+			},
+			tooltips: {
+				backgroundColor: 'rgba(28, 37, 65, 0.8)',
+				borderWidth: 0.5,
+				xPadding: 10,
+				yPadding: 10
+			},
+			scales: {
+				xAxes: [{
+					gridLines: {
+						display: true,
+						color: '#F1F1F1'
+					},
+					scaleLabel: {
+						display: true,
+						labelString: 'DÍAS',
+						fontColor: '#1C2541'
+					},
+					ticks: {
+						suggestedMin: 0
+					}
+				}],
+				yAxes: [{
+					gridLines: {
+						display: true,
+						color: '#F1F1F1'
+					},
+					scaleLabel: {
+						display: true,
+						labelString: 'UNIDADES',
+						fontColor: '#1C2541'
+					},
+					ticks: {
+						suggestedMax: 10,
+						suggestedMin: 0
+					}
+				}]
+			}
+		};
+		var etiquetas = [], temperatura = [], humedad = [];
+		//Vars para la grafica de pastel
+		if(estado != 6) {
+			var areaSub = document.getElementById('graficoSubclases').getContext('2d');
+			var graphSub = null;
+			var configSub = {
+				rotation: -1*Math.PI,
+				responsive: true,
+				maintainAspectRatio: false,
+				legend: {
+					display: false,
+					position: 'right',
+					onClick: function(val) {}
+				},
+				tooltips: {
+					backgroundColor: 'rgba(28, 37, 65, 0.8)',
+					borderWidth: 0.15,
+					xPadding: 10,
+					yPadding: 10
+				},
+				layout: {
+					padding: {
+						left: 15,
+						right: 15,
+						top: 15,
+						bottom: 15
+					}
+				}
+			};	
+		}
+		//Genera el grafico de subclases
+		if((estado == 3) || (estado == 4)) {genGraphSubs();}
+		genGraphRegs();
+		/*Detonar todo*/
+		startData();
+		/*Detonar calculo del último volteo*/
+		if((estado == 3) || (estado == 4)) {calculateFuv();}
+		//GENERA EL GRAFICO COMPOSICIÓN DE SUBCLASES
+		function genGraphSubs () {
+			$.ajax({
+				url: 'php/driverGrafico/getSubclases.php',
+				type: 'POST',
+				dataType: 'json',
+				data: {'idpilon': idpilon}
+			})
+			.done(function(resp) {
+				if(resp.estado == 1) {
+					if(resp.numDatos > 0) {
+						if((resp.etiquetas.length == resp.numDatos) && (resp.valores.length == resp.numDatos)) {
+							/*Generar vector de color*/
+							var listColor = palette('tol-rainbow', resp.valores.length).map(function(hex) {return '#' + hex;});
+							/*Cambiar tamaño del contenedor*/
+							$('#area-grafico-subclases').css('height', '400px').change();
+							/*Pasar los nuevos datos*/
+							var datos = {
+								labels: resp.etiquetas,
+								datasets: [{
+									data: resp.valores,
+									backgroundColor: listColor,
+									borderWidth: 2,
+									hoverBorderWidth: 0
+								}]
+							};
+							/*Generar gráfico de subclases*/
+							graphSub = new Chart(areaSub, {
+								type: 'doughnut',
+								data: datos,
+								options: configSub
+							});
+						} else {
+							$('#area-grafico-subclases').html("<div class='mensaje error'><p><b>ERROR: </b>INCONSISTENCIA EN EL NÚMERO DE DATOS A MOSTRAR</p></div>");		
+						}
+					} else {
+						$('#area-grafico-subclases').html("<div class='mensaje error'><p><b>ERROR: </b>SIN DATOS QUE MOSTRAR</p></div>");	
+					}
+				} else if(resp.estado == 0) {
+					$('#area-grafico-subclases').html("<div class='mensaje error'><p><b>ERROR: </b>NO SE HA COMPLETADO LA SOLICITUD, N° ERROR: <b>"+resp.motivo+"</b>, MOTIVO: <b>"+resp.mensaje+"</b> </p></div>");
+				} else {
+					$('#area-grafico-subclases').html("<div class='mensaje error'><p><b>ERROR: </b>ALGO HA SALIDO MAL</p></div>");
+				}
+			})
+			.fail(function(jqXHR, estado, error) {
+				$('#area-grafico-subclases').html("<div class='mensaje error'><p><b>ERROR: </b>NO SE HA COMPLETADO LA SOLICITUD DE MANERA CORRECTA "+jqXHR+" > "+estado+" > "+error+"</p></div>");
+			});
+		}
+		//GENERA EL GRÁFICO DE REGISTROS
+		function genGraphRegs() {
+			var datos = {
+		    	labels: etiquetas,
+		    	datasets: [{
+		    		borderColor: '#0ACF97',
+		    		backgroundColor: 'rgba(10, 207, 151, 0.25)',
+		    		label: 'TEMPERATURA (C°)',
+		    		fill: 'start',
+		    		pointStyle: 'circle',
+		    		pointBackgroundColor: '#0ACF97',
+		    		pointRadius: 3,
+		    		pointHoverRadius: 4
+		    	}, {
+		    		borderColor: '#727CF5',
+		    		backgroundColor: 'rgba(114, 124, 245, 0.25)',
+		    		label: 'HUMEDAD (%)',
+		    		fill: 'start',
+		    		pointStyle: 'circle',
+		    		pointBackgroundColor: '#727CF5',
+		    		pointRadius: 3,
+		    		pointHoverRadius: 4
+		    	}]
+		    };
+			graphRegs = new Chart(areaRegs, {
+			    type: 'line',
+			    data: datos,
+			    options: "configRegs"
+			});
+		}
+		/*FUNCION PARA DETECTAR TODOS LOS VALORES DEL PILÓN*/
+		function startData() {
+			$.ajax({
+				url: 'php/driverGrafico/getStartData.php',
+				type: 'POST',
+				dataType: 'json',
+				data: {'idpilon': idpilon, 'estado': estado, 'tab_sal': tab_sal}
+			})
+			.done(function(resp) {
+				if(resp.estado == 1) {
+					/*Iniciar todos los datos*/
+					conf = resp.datos;
+					/*Enviar datos a los campos de acuerdo a las respuestas*/
+					if(conf.n_total > 0) {
+						/*Enviar datos a la sección del form que establecerá la configuración*/
+						$('#data-inicial').text(conf.f_min);
+						$('#data-final').text(conf.f_max);
+						/*Enviar valor al primer campo*/
+						$('#f_inicial').val(conf.f_min);
+						/*Enviar datos de totales a cada tab*/
+						$('#num_reg').text(conf.n_reg);
+						$('#num_pro').text(conf.n_pro);
+						$('#num_sal').text(conf.n_sal);
+						/*Indica un error en la selección de fechas*/
+						conf.errorIntervalo = false; /*Años válidos*/
+						conf.errorPeriodo = false; /*Fechas del periodo válido*/
+						conf.errorFinal = false; /*Que la fecha final sea mayor o igual*/
+						/*Variables de control de datos que se filtran o muestran*/
+						conf.filtroActivo = false; //Indica si ya se realizó un filtrado en los procesos
+						conf.f_ini_filtro = null; //Fecha inicial del filtro
+						conf.f_fin_filtro = null; //Fecha final del filtro
+						conf.f_nDias = 0; //Numero de días entre las dos fechas
+						conf.vec_fechas = null; //Vector de todas las fechas comprendidas entre ambos días
+						datosFil.n_total_fil = 0; //Numero total de registros que se filtraron
+						datosFil.n_reg_fil = 0; //Numero de registros obtenidos por el filtro
+						datosFil.n_events_fil = 0; //Numero de eventos que se dieron durante el filtro
+						datosFil.n_pro_fil = 0; //Numero de procesos obtenidos por el filtro
+						datosFil.n_sal_fil = 0; //Numero de salidas obtenidas por el filtro
+						datosFil.datos_reg = null; //Almacenará los datos correspondientes al registro
+						datosFil.datos_stats = null; //Almacenará los datos estadísticos de los registros
+						datosFil.datos_events = null; //Almacenará los datos correspondientes a los eventos en el filtro
+						datosFil.datos_pro = null; //Almacenará los datos correspondientes a los procesos
+						datosFil.datos_sal = null; //Almacenará los datos correspondientes a las salidas						
+						/*Mostrar campos de configuración*/
+						$('#seccion-configuracion').addClass('fila ins');
+						$('#tabs_content').addClass('fila tabs');
+					} else {
+						$('#seccion-configuracion').addClass('fila inf').html("<p>AÚN NO EXISTEN REGISTROS, PROCESOS ADICIONALES O SALIDAS REGISTRADAS PARA ESTE PILÓN</p>");
+						$('#tabs_content').remove();
+					}
+				} else if(resp.estado == 0) {
+					$('#seccion-configuracion').addClass('fila adv').html("<p><b>ERROR: </b>NO SE PUDO COMPLETAR LA SOLICITUD</p>");
+					$('#tabs_content').remove();
+				} else {
+					$('#seccion-configuracion').addClass('fila adv').html("<p><b>ERROR: </b>NO SE PUDO COMPLETAR LA SOLICITUD</p>");
+					$('#tabs_content').remove();
+				}
+			})
+			.fail(function(jqXHR, estado, error) {
+				$('#seccion-configuracion').addClass('fila adv').html("<p><b>ERROR: </b>NO SE PUDO COMPLETAR LA SOLICITUD <b>"+jqXHR+" > "+estado+" > "+error+"</b></p>");
+				$('#tabs_content').remove();
+			});
+		}
+		$('#f_inicial, #f_final').change(function(e) {
+			/*Hay tres variables para considerar error en la selección de fechas*/
+			/*
+				conf.errorIntervalo = false; //Años válidos
+				conf.errorPeriodo = false; //Fechas del periodo válido
+				conf.errorFinal = false; //Que la fecha final sea mayor o igual
+			*/
+			var s_inicial = $('#f_inicial').val().split('-').join('/');
+			var s_final =  $('#f_final').val().split('-').join('/');
+			var fIni = new Date(s_inicial);
+			var fFin = new Date(s_final);
+			/*Eliminar mensajes por errores de fecha*/
+			$('.errorIntervalo, .errorPeriodo, .errorFinal, .errorGen').remove();
+			if((fIni == "Invalid Date") || (fFin == "Invalid Date")) {
+				/*El intervalo de años está mal*/
+				conf.errorIntervalo = true;
+			} else {
+				if(((fIni.getFullYear() >= 1900) && (fIni.getFullYear() <= 2100)) && ((fFin.getFullYear() >= 1900) && (fFin.getFullYear() <= 2100))) {
+					
+					/*Validar que la fecha final sea mayor o igual a la inicial*/
+					if(fFin.getTime() >= fIni.getTime()) {
+						var dDif = ((fFin.getTime() - fIni.getTime())/valor_dia)+1;
+						/*Límitar la cantidad diferencial de días en registro*/
+						if((dDif >= 5) && (dDif <= 62)) {
+							var fCIni = new Date(conf.f_min.split('-').join('/'));
+							var fCFin = new Date(conf.f_max.split('-').join('/'));
+							/*Validar que el periodo seleccionado se encuentre dentro del periodo de los límites de consulta*/
+							if((fIni.getTime() >= fCIni.getTime()) && (fFin.getTime() <= fCFin.getTime())) {
+								/*Settear fechas que incurren en el intervalo seleccionado y el número de días*/
+								conf.f_ini_filtro = s_inicial;
+								conf.f_fin_filtro = s_final;
+								conf.f_nDias = dDif;
+								conf.vec_fechas = new Array();
+								/*Generar arreglo de fechas, dependiendo la diferencia en días*/
+								if(conf.f_nDias == 1) {
+									conf.vec_fechas.push(conf.f_ini_filtro);
+								} else if(conf.f_nDias > 1) {
+									var fechaBase = fIni;
+									while(fechaBase.getTime() <= fFin.getTime()) {
+										var year = fechaBase.getFullYear();
+										var month = ((fechaBase.getMonth() + 1) < 10 ? '0'+(fechaBase.getMonth() + 1) : (fechaBase.getMonth() + 1));
+										var date = (fechaBase.getDate() < 10 ? '0'+fechaBase.getDate() : fechaBase.getDate());
+										conf.vec_fechas.push(year+"/"+month+"/"+date);
+										fechaBase.setDate(fechaBase.getDate() + 1);
+									}
+								}
+								/*Poner en false todas las variables de error*/
+								conf.errorIntervalo = false; //Años válidos
+								conf.errorPeriodo = false; //Fechas del periodo válido
+								conf.errorFinal = false; //Que la fecha final sea mayor o igual
+							} else {
+								$('#mensajePeriodo').append("<div class='mensaje error errorPeriodo'><p><b>ERROR: </b>EL INTERVALO DE TIEMPO SELECCIONADO SE ENCUENTRA FUERA DEL INTERVALO DE DATOS DISPONIBLES PARA EL PILÓN, SELECCIONA UN PERIODO VÁLIDO</p><i class='fas fa-times fa-fw btn-men'></i></div>");
+								conf.errorPeriodo = true;
+							}
+						} else {
+							$('#mensajePeriodo').append("<div class='mensaje error errorFinal'><p><b>ERROR: </b>DIFERENCIA DE FECHAS NO VÁLIDA, DEBE SER DE <b>5 A 62 DÍAS</b> ENTRE AMBAS FECHAS</p><i class='fas fa-times fa-fw btn-men'></i></div>");
+							conf.errorFinal = true;
+						}
+					} else {
+						$('#mensajePeriodo').append("<div class='mensaje error errorFinal'><p><b>ERROR: </b>LA FECHA FINAL DEBE SER MAYOR A LA INICIAL</p><i class='fas fa-times fa-fw btn-men'></i></div>");
+						conf.errorFinal = true;
+					}
+				} else {
+					$('#mensajePeriodo').append("<div class='mensaje error errorIntervalo'><p><b>ERROR: </b>PERIODO DE AÑOS NO VÁLIDOS</p><i class='fas fa-times fa-fw btn-men'></i></div>");
+					conf.errorIntervalo = true;
+				}
+			}
+		});
+		/*FUNCION DE SETT RANGO DE FECHAS*/
+		$('#fechasConfig').submit(function(s) {
+			s.preventDefault();
+			/*Validar selección de fechas*/
+			var val = $(this).validationEngine('validate');
+			if(val){
+				/*Eliminar mensajes generales*/
+				$('.errorGen').remove();
+				/*Verificar que no exista algún error de las fechas seleccionadas*/
+				if(!(conf.errorIntervalo) && !(conf.errorPeriodo) && !(conf.errorFinal)) {
+					/*Si no hay ningun error, generar los datos a pasar, que serán idpilon, estado, tab_sal, f_inicio, f_final y vector de fechas*/
+					var datosFiltro = [
+						idpilon,
+						estado,
+						tab_sal,
+						conf.f_ini_filtro,
+						conf.f_fin_filtro,
+						conf.f_nDias,
+						conf.vec_fechas
+					];
+					swal({
+						title: "CONFIRMAR",
+						text: "¿APLICAR FILTRO DE DATOS?",
+						icon: "warning",
+						buttons: ["CANCELAR", "ACEPTAR"],
+						dangerMode: true
+					})
+					.then(function(res) {
+						if(res) {
+							/*Limpiar sector de mensajes*/
+							$('#mensajePeriodo').html("");
+							/*Obtener datos*/
+							$.ajax({
+								url: 'php/driverGrafico/getRegistros.php',
+								type: 'POST',
+								dataType: 'json',
+								data: {'datosFiltro': datosFiltro},
+								beforeSend: function() {
+									if(!conf.filtroActivo) {
+										/*Si es la primeravez*/
+										$('#select-tab, #load-tab, #empty-tab').removeClass('activo');
+										$('#load-tab').addClass('activo');
+									} else {
+										/*No hacer nada*/
+									}
+								}
+							})
+							.done(function(resp) {
+								if(resp.estado == 1) {
+									if(resp.n_total == 0) {
+										/*No hubo resultados*/
+										swal("MENSAJE", "NO EXISTEN REGISTROS EN EL PERIODO SELECCIONADO", "error");
+									} else {
+										/*Iniciar todos los datos*/
+										/*Settear varible que almacenará los datos*/
+										datosFil.n_total_fil = resp.n_total;
+										datosFil.n_reg_fil = resp.n_reg;
+										datosFil.n_events_fil = resp.n_events;
+										datosFil.n_pro_fil = resp.n_pro;
+										datosFil.n_sal_fil = resp.n_sal;
+										/*De acuerdo a los datos anteriores, reemplazar los valores por defecto*/
+										if(datosFil.n_reg_fil > 0) {
+											datosFil.datos_reg = {
+												"labels": resp.registros.labels,
+												"temp": resp.registros.temp,
+												"hum": resp.registros.hum
+											};
+											datosFil.datos_stats = resp.registros.stats;
+										}
+										if(datosFil.n_events_fil > 0) { datosFil.events = resp.registros.events;}
+										if(datosFil.n_sal_fil > 0) { datosFil.datos_sal = resp.salidas; }
+										if(datosFil.n_pro_fil > 0) { datosFil.datos_pro = resp.procesos; }
+										/*Cambiar datos del boton exportar*/
+										$("#btn-exportar").attr("href", "Configurar_Exportacion.php?idpilon="+idpilon+"&f_inicio="+(conf.f_ini_filtro.split('/').join('-'))+"&f_fin="+(conf.f_fin_filtro.split('/').join('-'))).change();
+										/*Invocar a la función setteadora*/
+										setData();
+									}
+								} else if(resp.estado == 0) {
+									$('#mensajePeriodo').append("<div class='mensaje error errorGen'><p><b>ERROR: </b> N° <b>"+resp.motivo+"</b>, MOTIVO <b>"+resp.mensaje+"</b></p><i class='fas fa-times fa-fw btn-men'></i></div>");
+								} else {
+									$('#mensajePeriodo').append("<div class='mensaje error errorGen'><p><b>ERROR: </b>NO SE PUDO COMPLETAR LA SOLICITUD <b>ESTADOS</b></p><i class='fas fa-times fa-fw btn-men'></i></div>");
+								}
+							})
+							.fail(function(jqXHR, estado, error) {
+								$('#mensajePeriodo').append("<div class='mensaje error errorGen'><p><b>ERROR: </b>NO SE PUDO COMPLETAR LA SOLICITUD <b>"+jqXHR+" > "+estado+" > "+error+"</b></p><i class='fas fa-times fa-fw btn-men'></i></div>");
+							})
+							.always(function() {
+								$('#load-tab').removeClass('activo');
+							});
+						}
+					});
+				} else {
+					$('#mensajePeriodo').append("<div class='mensaje error errorGen'><p><b>ERROR: </b>HAY UN PROBLEMA CON LAS FECHAS QUE HAS SELECCIONADO</p><i class='fas fa-times fa-fw btn-men'></i></div>");
+				}
+			} else {
+				console.log("CORREGIR: PERIODO");
+			}
+		});
+		/*ENVIA Y DA DE ALTA TODOS LOS COMPONENTES QUE SE HAN DE MANIPULAR*/
+		function setData() {
+			/*Enviar todos los datos por primera vez*/
+			/*Actualizar número de datos*/
+			$('#num_reg').text(datosFil.n_reg_fil);
+			$('#num_sal').text(datosFil.n_sal_fil);
+			$('#num_pro').text(datosFil.n_pro_fil);
+			/*Agregar clase de hover*/
+			$('.tab_element').addClass('colOH');
+			/*Si hay registros*/
+			if(datosFil.n_reg_fil > 0) {
+				/*Pasar datos a el apartado del gráfico*/
+				$('#temp-min').text(datosFil.datos_stats.t_min);
+				$('#hum-min').text(datosFil.datos_stats.h_min);
+				$('#temp-max').text(datosFil.datos_stats.t_max);
+				$('#hum-max').text(datosFil.datos_stats.h_max);
+				$('#temp-prom').text(datosFil.datos_stats.t_pro);
+				$('#hum-prom').text(datosFil.datos_stats.h_pro);
+				/*Definir valor máximo*/
+				var vValMax = 0;
+				var t_max = parseInt(datosFil.datos_stats.t_max);
+				var h_max = parseInt(datosFil.datos_stats.h_max);
+				if(t_max > h_max) {
+					vValMax = Math.ceil(t_max / 10) * 10;
+				} else {
+					vValMax = Math.ceil(h_max / 10) * 10;
+				}
+				/*Verificar que no sea igual al máximo, sino sumar 5*/
+				if((vValMax == t_max) || (vValMax == h_max)) {
+					vValMax += 5;
+				}
+				/*Actualizar valór máximo*/
+				graphRegs.options.scales.yAxes[0].ticks.suggestedMax = vValMax;
+				/*Settear datos al gráfico*/
+				graphRegs.data.labels = datosFil.datos_reg.labels;
+				graphRegs.data.datasets[0].data = datosFil.datos_reg.temp;
+				graphRegs.data.datasets[1].data = datosFil.datos_reg.hum;
+				/*Actualizar gráfico*/
+				graphRegs.update();
+			}
+			/*Si hay eventos*/
+			if(datosFil.n_events_fil > 0) {
+				/*Variable de concatenación para satos*/
+				var salEvents = "";
+				for(var idxE = 0; idxE < datosFil.events.length; idxE++) {
+					var tipEvent = datosFil.events[idxE][0];
+					var vecEvent = datosFil.events[idxE];
+					/*Verificar de acuerdo al tipo, el evento que le corresponde*/
+					switch(tipEvent) {
+						case 1:
+							salEvents += "<div title='TEMPERATURA MENOR AL LÍMITE ESTABLECIDO' class='evento temp'><div class='e-content'><div class='e-icon'><i class='fas fa-long-arrow-alt-down fa-fw'></i></div><div class='e-datos'><div class='e-con-align-dos'><div class='e-campo'><div class='e-val-titulo'>"+vecEvent[1]+"</div><div class='e-val-valor'>"+vecEvent[3]+"</div></div><div class='e-campo'><div class='e-val-titulo'>DIF</div><div class='e-val-valor'>"+vecEvent[4]+"</div></div></div></div></div></div>";
+							break;
+						case 2:
+							salEvents += "<div title='TEMPERATURA MAYOR AL LÍMITE ESTABLECIDO' class='evento temp'><div class='e-content'><div class='e-icon'><i class='fas fa-long-arrow-alt-up fa-fw'></i></div><div class='e-datos'><div class='e-con-align-dos'><div class='e-campo'><div class='e-val-titulo'>"+vecEvent[1]+"</div><div class='e-val-valor'>"+vecEvent[3]+"</div></div><div class='e-campo'><div class='e-val-titulo'>DIF</div><div class='e-val-valor'>+"+vecEvent[4]+"</div></div></div></div></div></div>";
+							break;
+						case 3:
+							salEvents += "<div title='HUMEDAD MENOR AL LÍMITE ESTABLECIDO' class='evento hum'><div class='e-content'><div class='e-icon'><i class='fas fa-long-arrow-alt-down fa-fw'></i></div><div class='e-datos'><div class='e-con-align-dos'><div class='e-campo'><div class='e-val-titulo'>"+vecEvent[1]+"</div><div class='e-val-valor'>"+vecEvent[3]+"</div></div><div class='e-campo'><div class='e-val-titulo'>DIF</div><div class='e-val-valor'>"+vecEvent[4]+"</div></div></div></div></div></div>";
+							break;
+						case 4:
+							salEvents += "<div title='HUMEDAD MAYOR AL LÍMITE ESTABLECIDO' class='evento hum'><div class='e-content'><div class='e-icon'><i class='fas fa-long-arrow-alt-up fa-fw'></i></div><div class='e-datos'><div class='e-con-align-dos'><div class='e-campo'><div class='e-val-titulo'>"+vecEvent[1]+"</div><div class='e-val-valor'>"+vecEvent[3]+"</div></div><div class='e-campo'><div class='e-val-titulo'>DIF</div><div class='e-val-valor'>+"+vecEvent[4]+"</div></div></div></div></div></div>";
+							break;
+					}
+				}
+				/*Enviar datos al cuerpo del contenedor de eventos*/
+				/*Verificar si el contenedor tiene la clase correspondiente*/
+				if(($('#eventos-content').hasClass('x30')) || ($('#eventos-content').hasClass('x100'))) {
+					$('#eventos-cuerpo').html(salEvents);
+				} else {
+					$('#grafico-regs-content').removeClass('x100').addClass('x70');
+					/*Ocultar la seccion de eventos*/
+					$('#eventos-content').removeClass('oculto').addClass('x30');
+					$('#eventos-cuerpo').html(salEvents);
+				}
+			} else {
+				/*Desplegar grafico completo y acultar eventos, si hay registros*/
+				if(datosFil.n_reg_fil > 0) {
+					$('#grafico-regs-content').removeClass('x70').addClass('x100');
+					/*Ocultar la seccion de eventos*/
+					$('#eventos-content').removeClass('x30').addClass('oculto');
+				}
+			}
+			/*Si hay procesos*/
+			if(datosFil.n_pro_fil > 0) {
+				/*Variable auxiliar que informará si hay un proceso o medicion activo, si es así, entonces si es un dia feriado o domingo, no se activará este*/
+				var exMed = 0, strMed = "";
+				var exPro = 0, strPro = "";
+				/*Tabla de datos del proceso*/
+				var tabPro = "";
+				for(var idxP = 0; idxP < datosFil.datos_pro.length; idxP++) {
+					/*Reiniciar variable de conteo de mediciones o procesos*/
+					exMed = 0;
+					strMed = "";
+					exPro = 0;
+					strPro = "";
+					/*Acumular cadena de datos*/
+					tabPro += "<div class='dia'>";
+						/*Indica la fecha*/
+						tabPro += "<div title='FECHA' class='l-dia colP'>"+datosFil.datos_pro[idxP][0]+"</div>";
+						strMed += "<div title='MEDICIONES' class='l-medicion'>";
+							if(datosFil.datos_pro[idxP][13] > 0) {
+								strMed += "<p title='TEMPERATURA'>"+datosFil.datos_pro[idxP][13]+" °C</p>";
+								exMed++;
+							}
+							if(datosFil.datos_pro[idxP][14] > 0) {
+								strMed += "<p title='HUMEDAD'>"+datosFil.datos_pro[idxP][14]+" %</p>";
+							}
+						strMed += "</div>";
+						/*Verificar cada posición del vector para ver si hay un proceso*/
+						if(datosFil.datos_pro[idxP][1] == 1) { strPro += "<div title='FUMIGADO' class='l-proceso fumigado'></div>"; exPro++; } else { strPro += "<div class='l-proceso'></div>"; }
+						if(datosFil.datos_pro[idxP][2] == 1) { strPro += "<div title='HUMECTADO' class='l-proceso humectado'></div>"; exPro++; } else { strPro += "<div class='l-proceso'></div>"; }
+						if(datosFil.datos_pro[idxP][3] == 1) { strPro += "<div title='LAVADO' class='l-proceso lavado'></div>"; exPro++; } else { strPro += "<div class='l-proceso'></div>"; }
+						if(datosFil.datos_pro[idxP][4] == 1) { strPro += "<div title='LAVADO AL 50%' class='l-proceso lavado-medio'></div>"; exPro++; } else { strPro += "<div class='l-proceso'></div>"; }
+						if(datosFil.datos_pro[idxP][5] == 1) { strPro += "<div title='LAVADO CON MEZCLA' class='l-proceso lavado-mezcla'></div>"; exPro++; } else { strPro += "<div class='l-proceso'></div>"; }
+						if(datosFil.datos_pro[idxP][6] == 1) { strPro += "<div title='OREADO' class='l-proceso oreado'></div>"; exPro++; } else { strPro += "<div class='l-proceso'></div>"; }
+						if(datosFil.datos_pro[idxP][7] == 1) { strPro += "<div title='TENDIDO' class='l-proceso tendido'></div>"; exPro++; } else { strPro += "<div class='l-proceso'></div>"; }
+						if(datosFil.datos_pro[idxP][8] == 1) { strPro += "<div title='LIMPIADO' class='l-proceso limpiado'></div>"; exPro++; } else { strPro += "<div class='l-proceso'></div>"; }
+						if(datosFil.datos_pro[idxP][9] == 1) { strPro += "<div title='VOLTEADO' class='l-proceso volteado'></div>"; exPro++; } else { strPro += "<div class='l-proceso'></div>"; }
+						if(datosFil.datos_pro[idxP][10] == 1) { strPro += "<div title='REHUBICADO' class='l-proceso rehubicado'></div>"; exPro++; } else { strPro += "<div class='l-proceso'></div>"; }
+						if(datosFil.datos_pro[idxP][11] == 1) { strPro += "<div title='EMPACADO' class='l-proceso empacado'></div>"; exPro++; } else { strPro += "<div class='l-proceso'></div>"; }
+						if(datosFil.datos_pro[idxP][12] == 1) { strPro += "<div title='TERMINADO' class='l-proceso terminado'></div>"; exPro++; } else { strPro += "<div class='l-proceso'></div>"; }
+						/*Verificar si hay una fech marcada*/
+						var exFEsp = datosFil.datos_pro[idxP][15];
+						if(exFEsp > 0) {
+							/*Existe una fecha especial*/
+							/*Si ya hay una medición o un proceso*/
+							if((exMed > 0) || (exPro > 0)) {
+								/*Agregar contenido de mediciones y procesos*/
+								tabPro += strMed;
+								tabPro += strPro;
+							} else {
+								/*Agregar fecha especial*/
+								if(exFEsp == 1) {
+									/*Es feriado*/
+									tabPro += "<div title='FERIADO' class='l-fecha feriado'><p>FERIADO</p></div>";
+								} else if(exFEsp == 2) {
+									/*Es domingo*/
+									tabPro += "<div title='DOMINGO' class='l-fecha domingo'><p>DOMINGO</p></div>";
+								}
+							}
+						} else {
+							tabPro += strMed;
+							tabPro += strPro;
+						}
+					tabPro += "</div>";
+				}
+				/*Enviar datos al cuerpo de procesos*/
+				$('#procesos-cuerpo').html(tabPro);
+			}
+			/*Si hay salidas, generar la tabla*/
+			if(datosFil.n_sal_fil > 0) {
+				var tabSals = "";
+				for(var idxS = 0; idxS < datosFil.datos_sal.length; idxS++) {
+					tabSals += "<tr>";
+						tabSals += "<td>"+datosFil.datos_sal[idxS][0]+"</td>";
+						tabSals += "<td>"+datosFil.datos_sal[idxS][1]+"</td>";
+						tabSals += "<td>"+datosFil.datos_sal[idxS][2]+"</td>";
+						tabSals += "<td>"+datosFil.datos_sal[idxS][3]+"</td>";
+						tabSals += "<td>"+datosFil.datos_sal[idxS][4]+"</td>";
+						tabSals += "<td>"+datosFil.datos_sal[idxS][5]+"</td>";
+						tabSals += "<td>"+datosFil.datos_sal[idxS][6]+"</td>";
+					tabSals += "</tr>";
+				}
+				/*Evniar tabla a la zona de salidas*/
+				$('#salidas-cuerpo').html(tabSals);
+			}
+			/*Remover todas las pestañas activas*/
+			$('.tab_element').removeClass('activo colO colO');
+			$('.tab').removeClass('activo colO colO');
+			$('.num_icon').removeClass('colO colC')
+			/*Activar la primera pestaña de acuerdo a lo que se dé primero*/
+			if(datosFil.n_reg_fil > 0) {
+				/*Si hay registros activar la pestaña*/
+				$('#tab-registros').addClass('activo colO');
+				$('#seccion-grafico').addClass('activo');
+				$('#num_reg').removeClass('colO').addClass('colC');
+			} else {
+				/*Sino, verificar la pestaña de salidas*/
+				if(datosFil.n_pro_fil > 0) {
+					/*Sino, activar la ultima pestaña*/
+					$('#tab-procesos').addClass('activo colO');
+					$('#seccion-procesos').addClass('activo');
+					$('#num_pro').removeClass('colO').addClass('colC');
+				} else {
+					/*Si hay salidas, activar la pestaña*/
+					$('#tab-salidas').addClass('activo colO');
+					$('#seccion-salidas').addClass('activo');
+					$('#num_sal').removeClass('colO').addClass('colC');
+				}
+			}
+			/*Desplegar seccion de indicacion*/
+			$('#indicador-intervalo').addClass('fila inf');
+			/*enviar fechas*/
+			$('#fecha_inf').text(conf.f_ini_filtro);
+			$('#fecha_sup').text(conf.f_fin_filtro);
+			/*Activar bandera de filtro*/
+			conf.filtroActivo = true;
+		}
+		/*Controlar los clicks en los tabs*/
+		$('.tab_element').click(function(tClick) {
+			if(conf.filtroActivo) {
+				var id = $(this).attr('id');
+				var id_tab = $(this).attr('id_tab');
+				/*Remover todos los activos de tabs y tab_element*/
+				$('.tab_element').removeClass('activo colO');
+				$('.tab').removeClass('activo');
+				/*Resetear el color de todos los iconitos de numeros*/
+				$('.num_icon').removeClass('colO colC');
+				/*Añadir el activo al actual tab_element*/
+				$(this).addClass('actiov colO');
+				/*Pasar a todos los iconitos el color oscuro*/
+				$('.num_icon').addClass('colO');
+				/*De acuerdo a lo seleccionado, mostrar el contendor*/
+				if(id == "tab-registros") {
+					if(datosFil.n_reg_fil > 0) {
+						$('#'+id_tab).addClass('activo');
+					} else {
+						$('#empty-tab').addClass('activo');
+					}
+					/*Colorear el numero correspondiente a blanco*/
+					$('#num_reg').removeClass('colO').addClass('colC');
+				} else if(id == "tab-procesos") {
+					if(datosFil.n_pro_fil > 0) {
+						$('#'+id_tab).addClass('activo');
+					} else {
+						$('#empty-tab').addClass('activo');
+					}
+					/*Colorear el numero correspondiente a blanco*/
+					$('#num_pro').removeClass('colO').addClass('colC');
+				} else if(id == "tab-salidas") {
+					if(datosFil.n_sal_fil > 0) {
+						$('#'+id_tab).addClass('activo');
+					} else {
+						$('#empty-tab').addClass('activo');
+					}
+					/*Colorear el numero correspondiente a blanco*/
+					$('#num_sal').removeClass('colO').addClass('colC');
+				} else {
+					/*Si hay un problema con los otros tabs*/
+					$('#select-tab').addClass('activo');
+				}
+			}
+		});
+		/*Controlador del expansor del gráfico*/
+		$('#grafico-regs-content').click(function(gClick) {
+			/*Si el filtro está activo, checar la clase*/
+			if(conf.filtroActivo) {
+				if(datosFil.n_events_fil > 0) {
+					if($(this).hasClass('x70')) {
+						$(this).removeClass('x70').addClass('x100');
+						$('#eventos-content').removeClass('x30').addClass('x100');
+						/*Si hay eventos, cambiar a los eventos*/
+					} else if($(this).hasClass('x100')) {
+						$(this).removeClass('x100').addClass('x70');
+						/*Retraer los eventos si los hay*/
+						$('#eventos-content').removeClass('x100').addClass('x30');
+					}
+				}
+			}
+		});
+		/*Calcular stats de la fecha del ultimo volteo*/
+		function calculateFuv() {
+			/*Fecha de hechura*/
+			var fecha_hechura = new Date(f_hechura);
+				fecha_hechura.setHours(0);
+				fecha_hechura.setMinutes(0);
+				fecha_hechura.setSeconds(0);
+				fecha_hechura.setMilliseconds(0);
+			/*Fecha Ultimo Volteo*/
+			var fecha_ultimo = (fuv == "" ? false : new Date(fuv));
+				if((typeof fecha_ultimo) == 'object') {
+					fecha_ultimo.setHours(0);					
+					fecha_ultimo.setMinutes(0);
+					fecha_ultimo.setSeconds(0);
+					fecha_ultimo.setMilliseconds(0);
+				}
+			/*Fecha Actual*/
+			var fecha_actual = new Date();
+				fecha_actual.setHours(0);
+				fecha_actual.setMinutes(0);
+				fecha_actual.setSeconds(0);
+				fecha_actual.setMilliseconds(0);
+			/*Fecha Siguiente Volteo*/
+			var fecha_siguiente = new Date();
+				fecha_siguiente.setHours(0);
+				fecha_siguiente.setMinutes(0);
+				fecha_siguiente.setSeconds(0);
+				fecha_siguiente.setMilliseconds(0);
+			var fecha_anterior = new Date();
+				fecha_anterior.setHours(0);
+				fecha_anterior.setMinutes(0);
+				fecha_anterior.setSeconds(0);
+				fecha_anterior.setMilliseconds(0);
+			/*Diferencia de Días*/
+			var num_dias = 0;
+			var num_ciclos = 0;
+			var dias_rest_ciclos = 0;
+			var dias_sig_ciclo = 0;
+			/*Días sin voltear*/
+			if((typeof fecha_ultimo) == 'object') {
+				/*Calcular desde la fecha de ultimo volteo*/
+				num_dias = parseInt((fecha_actual.getTime() - fecha_ultimo.getTime())/valor_dia);
+			} else {
+				/*Calcular desde la fecha de hechura*/
+				num_dias = parseInt((fecha_actual.getTime() - fecha_hechura.getTime())/valor_dia);
+			}
+			/*Si los dias de volteo son 0 calcular el siguiente volteo*/
+			if(num_dias == 0) {
+				/*Obtener la siguiente fecha de volteo*/
+				fecha_siguiente.setDate(fecha_actual.getDate() + ciclo);
+				/*Fecha del siguiente volteo*/
+				$('#indicador-volteo').addClass('msg').html("<p>SIGUIENTE VOLTEO RECOMENDADO</p><h3>"+toFecha(fecha_siguiente)+"</h3>");
+			} else if(num_dias > 0) { /*Si es un número mayor a 0*/
+				/*Numero de ciclos sin voltear*/
+				num_ciclos = parseInt(num_dias/ciclo);
+				/*Días restantes del ciclo de volteo*/
+				dias_rest_ciclos = num_dias - (num_ciclos * ciclo);
+				/*Días para completar el ciclo restante*/
+				dias_sig_ciclo = ciclo - dias_rest_ciclos;
+				/*Si no hay dias restantes en los ciclos, es por que hoy es un día exacto de ciclo, por lo que la fecha de volteo es igual a hoy, no se modifica*/
+				if(dias_rest_ciclos == 0) {
+					/*El pilón debe voltearse hoy*/
+					$('#indicador-volteo').addClass('adv').html("<p>EL PILÓN DEBE VOLTEARSE HOY</p><h3>"+toFecha(fecha_siguiente)+"</h3>");
+					dirProcesos("EL PILÓN DEBE VOLTEARSE HOY", fecha_siguiente);
+				} else {
+					/*Obtener la fecha del siguiente volteo por los dias que faltan para el sig ciclo*/
+					fecha_anterior.setDate(fecha_actual.getDate() - dias_rest_ciclos);
+					
+					if(dias_rest_ciclos == 1) {
+						/*El pilón devió voltearse ayer*/
+						$('#indicador-volteo').append("<div class='fila adv'><p>EL PILÓN DEBIÓ VOLTEARSE AYER</p><h3>"+toFecha(fecha_anterior)+"</h3></div>");
+						dirProcesos("EL PILÓN DEBIÓ VOLTEARSE AYER", fecha_anterior);
+					} else if(dias_rest_ciclos == 2) {
+						/*El pilón debió voltearse antier*/
+						$('#indicador-volteo').append("<div class='fila adv'><p>EL PILÓN DEBIÓ VOLTEARSE ANTIER</p><h3>"+toFecha(fecha_anterior)+"</h3></div>");
+						dirProcesos("EL PILÓN DEBIÓ VOLTEARSE ANTIER", fecha_anterior);
+					} else {
+						/*Veriricar que la fecha de volteo no sea la fecha de hechura*/
+						if(fecha_anterior.getTime() > fecha_hechura.getTime()) {
+							/*Verificar que el anterior volteo sea mayor que la fecha del ultimo volteo*/
+							if((typeof fecha_ultimo) == 'object') {
+								if(fecha_anterior.getTime() > fecha_ultimo.getTime()) {
+									/*El pilón debió voltearse el día X-fecha*/
+									$('#indicador-volteo').append("<div class='fila adv'><p>EL PILÓN DEBIÓ VOLTEARSE EL DÍA</p><h3>"+toFecha(fecha_anterior)+"</h3></div>");
+									dirProcesos("EL PILÓN DEBIÓ VOLTEARSE EL DÍA", fecha_anterior);
+								}
+							} else {
+								/*El pilón debió voltearse el día X-fecha*/
+								$('#indicador-volteo').append("<div class='fila adv'><p>EL PILÓN DEBIÓ VOLTEARSE EL DÍA</p><h3>"+toFecha(fecha_anterior)+"</h3></div>");
+								dirProcesos("EL PILÓN DEBIÓ VOLTEARSE EL DÍA", fecha_anterior);
+							}
+						}
+					}
+				
+					/*Obtener fecha anterior al volteo*/
+					fecha_siguiente.setDate(fecha_actual.getDate() + dias_sig_ciclo);
+					
+					if(dias_sig_ciclo == 1) {
+						/*El pilón se voltea mañana*/
+						$('#indicador-volteo').append("<div class='fila msg'><p>EL PILÓN DEBE VOLTEARSE MAÑANA</p><h3>"+toFecha(fecha_siguiente)+"</h3></div>");
+					} else if(dias_sig_ciclo == 2) {
+						/*El pilón se voltea pasado*/
+						$('#indicador-volteo').append("<div class='fila msg'><p>EL PILÓN DEBE VOLTEARSE PASADO</p><h3>"+toFecha(fecha_siguiente)+"</h3></div>");
+					} else {
+						/*El pilón se voltea en la X-fecha*/
+						$('#indicador-volteo').append("<div class='fila msg'><p>SIGUIENTE VOLTEO RECOMENDADO</p><h3>"+toFecha(fecha_siguiente)+"</h3></div>");
+					}
+				}
+			}
+		}
+		/*Convertir Fechas*/
+		function toFecha(fecha) {
+			var trFecha = "";
+			//Día de la semana
+			trFecha += dias[fecha.getDay()];
+			//Número de día
+			trFecha += " "+(fecha.getDate() < 10 ? '0'+fecha.getDate() : fecha.getDate());
+			//Mes
+			trFecha += ", "+meses[fecha.getMonth()];
+			//Año
+			trFecha += " "+fecha.getFullYear();
+			return trFecha;
+		}
+		/*Redirecciones de Volteo*/
+		function dirProcesos(mensaje, fechaX) {
+			if((rol == 'ADMINISTRADOR') && (edo_sistema == 'all')) {
+				swal({
+					title: "ATENCIÓN",
+					text: "DE ACUERDO A AL CICLO DE VOLTEO ESPECIFICADO, "+mensaje+": "+toFecha(fechaX),
+					icon: "warning",
+					buttons: ["ACEPTAR", "IR A PROCESOS ADICIONALES"],
+					dangerMode: true
+				})
+				.then(function(rUser) {
+					if(rUser) {
+						window.location= "Procesos.php?idpilon="+idpilon;
+					}
+				});
+			}
+		}
+		/*Controlar botón del para exportar datos*/
+		$('#btn-exportar').click(function(cB) {
+			if(!conf.filtroActivo) {
+				cB.preventDefault();
+				swal("ATENCIÓN", "SELECCIONA UN PERIODO DE TIEMPO ANTES DE EXPORTAR", "warning");
+			}
+		});
+	});
+</script>
+
+	<section class="primero">
+		<div class="titulo pilon">
+			<div class="centrar">
+				<a title="VOLVER" href="Pilones.php"><i class="fas fa-arrow-left f-left"></i></a>
+			
+				<h2>PILÓN | <?php echo $datosPilon['nombre']; ?></h2>
+				<a target="acciones_pilon" title="ACCIONES DEL PILÓN" class="abrir-modal" href="#"><i class="fas fa-ellipsis-v f-right"></i></a>
+			</div>
+		</div>
+
+		<!--VENTANA DE ACCIONES DEL PILÓN-->
+		<div id="acciones_pilon" class="modal">
+			<div class="modal-contenedor x30">
+				<div class="titulo colP">
+					<div class="centrar">
+						<h2>ACCIONES</h2>
+						<a target="acciones_pilon" title="CERRAR" class="cerrar-modal" href="#">
+							<i class="fas fa-times fa-fw f-right"></i>
+						</a>
+					</div>
+				</div>
+				<div class="cuerpo colC">
+					<div class="centrar">
+						<div class="fila ins">
+							<p>SECCIONA UNA OPERACIÓN A REALIZAR</p>
+						</div>
+						<div class="fila">
+							<div class="menu-acciones">
+								<?php
+									if ($_SESSION['rol'] == 'ADMINISTRADOR') {
+										?>
+											<div class="seccion">
+												<h4 class="s-titulo">SOBRE EL PILÓN</h4>
+												<?php
+													if($_SESSION['estado'] == 'all') {
+														?>
+															<div class="accion-menu">
+																<a href="Pilon_DG.php">
+																	<div class="vertical">
+																		<i class="fas fa-plus fa-fw colS colPH"></i>
+																		<p>NUEVO PILÓN</p>
+																	</div>
+																</a>
+															</div>
+														<?php
+														if($edo_pilon == 3 || $edo_pilon == 4) {
+															?>
+																<div class="accion-menu">
+																	<a href="Editar_Pilon.php?idpilon=<?php echo $idpilon; ?>">
+																		<div class="vertical">
+																			<i class="fas fa-edit fa-fw colS colPH"></i>
+																			<p>EDITAR DATOS DEL PILÓN ACTUAL</p>
+																		</div>
+																	</a>
+																</div>
+															<?php 
+														}
+													}
+													if($edo_pilon == 3 || $edo_pilon == 4) {
+														?>
+															<div class="accion-menu">
+																<a href="Procesos.php?idpilon=<?php echo $idpilon; ?>">
+																	<div class="vertical">
+																		<i class="fas fa-project-diagram fa-fw colS colPH"></i>
+																		<p>GESTIONAR PROCESOS ADICIONALES</p>
+																	</div>
+																</a>
+															</div>
+
+															<div class="accion-menu">
+																<a href="Salidas.php?idpilon=<?php echo $idpilon;?>">
+																	<div class="vertical">
+																		<i class="fas fa-upload fa-fw colS colPH"></i>
+																		<p>GESTIONAR SALIDAS DE TABACO</p>
+																	</div>
+																</a>
+															</div>
+														<?php
+													}
+												?>
+											</div>
+										<?php
+									}
+									?>
+
+									<div class="seccion">
+										<h4 class="s-titulo">DOCUMENTOS</h4>
+										<div class="accion-menu">
+											<a id="btn-exportar" href="#">
+												<div class="vertical">
+													<i class="fas fa-file-export fa-fw colS colPH"></i>
+													<p>EXPORTAR DATOS DEL PILÓN ACTUAL</p>
+												</div>
+											</a>
+										</div>
+										<div class="accion-menu">
+											<a href="ID_PILON.php?idpilon=<?php echo $idpilon;?>">
+												<div class="vertical">
+													<i class="fas fa-sticky-note fa-fw colS colPH"></i>
+													<p>HOJA DE IDENTIDAD DEL PILÓN ACTUAL</p>
+												</div>												
+											</a>
+										</div>
+									</div>
+									<?php
+									if ($numPilonVal > 2) {
+										?>
+											<div class="seccion">
+												<h4 class="s-titulo">EXTRAS</h4>
+												<?php
+													if (($_SESSION['rol'] == 'ADMINISTRADOR') && ($_SESSION['estado'] == 'all')) {
+														?>
+															<div class="accion-menu">
+																<a href="Combinar.php">
+																	<div class="vertical">
+																		<i class="fas fa-random fa-fw colS colPH"></i>
+																		<p>COMBINAR PILONES</p>
+																	</div>
+																	
+																</a>
+															</div>
+														<?php
+													}
+												?>
+												<!--<div class="accion-menu">
+													<a href="#">
+														<div class="vertical">
+															<i class="fas fa-history fa-fw colS colPH"></i>
+															<p>HISTORIAL POR GRUPO DE PILONES</p>
+														</div>
+													</a>
+												</div>-->
+											</div>
+										<?php
+									}
+								?>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="cuerpo">
+			<div class="centrar">
+				<?php
+					if($_SESSION['rol'] == 'ADMINISTRADOR') {
+						include("general/estado.php");
+					}
+				?>
+
+				<!--INFORMACIÓN DEL PILÓN-->
+				<div class="fila ins informacion">
+					<div class="fila inf">
+						<h3>PERFIL DEL PILÓN</h3>
+						<p>LAS SIGUIENTES SECCIONES MUESTRAN LA INFORMACIÓN GENERAL DEL PILÓN</p>
+					</div>
+
+					<div class="info-seccion">
+						<h3>DATOS DE IDENTIDAD</h3>
+						<div class="vertical">
+							<div class="campo x25">
+								<label for="info1"><i class="fas fa-hashtag"></i> NOMBRE</label>
+								<input type="text" value="<?php echo $datosPilon['nombre']; ?>" name="info1" id="info1" disabled>
+							</div>
+							<div class="campo x25">
+								<label for="info2"><i class="far fa-eye"></i> PRIORIDAD</label>
+								<input type="text" value="<?php if($datosPilon['prioridad'] == 1){echo('ALTA');}elseif($datosPilon['prioridad'] == 2){echo('MEDIA');}else{echo('NORMAL');} ?>" name="info2" id="info2" disabled>
+							</div>
+							<div class="campo x25">
+								<label for="info3"><i class="far fa-clone"></i> ÁREA</label>
+								<input type="text" value="<?php echo $datosPilon['area']; ?>" name="info3" id="info3" disabled>
+							</div>
+							<div class="campo x25">
+								<label for="info4"><i class="fas fa-leaf"></i> CLASE PRINCIPAL</label>
+								<input type="text" value="<?php echo $datosPilon['clase']; ?>" name="info4" id="info4" disabled>
+							</div>
+						</div>
+
+						<div class="vertical">
+							<div class="campo x25">
+								<label for="info5"><i class="far fa-dot-circle"></i> OBJETIVO PRINCIPAL</label>
+								<input type="text" value="<?php echo $datosPilon['obj_principal']; ?>" name="info5" id="info5" disabled>
+							</div>
+							<div class="campo x25">
+								<label for="info6"><i class="fas fa-balance-scale"></i> PESO INICIAL (KG)</label>
+								<input type="text" value="<?php echo $datosPilon['p_inicial']; ?>" name="info6" id="info6" disabled>
+							</div>
+							<div class="campo x25">
+								<label for="info7"><i class="fas fa-balance-scale"></i> PESO ACTUAL (KG)</label>
+								<input type="text" value="<?php echo $datosPilon['p_actual']; ?>" name="info7" id="info7" disabled>
+							</div>
+							<div class="campo x25">
+								<label for="info8"><i class="far fa-calendar-alt"></i> FECHA DE HECHURA</label>
+								<input type="text" value="<?php echo $datosPilon['f_hechura']; ?>" name="info8" id="info8" disabled>
+							</div>
+						</div>
+
+						<div class="vertical">
+							<div class="campo x25">
+								<label for="info9"><i class="far fa-clock"></i> CICLO DE VOLTEO (DÍAS)</label>
+								<input type="text" value="<?php echo $datosPilon['ciclo']; ?>" name="info9" id="info9" disabled>
+							</div>
+							<div class="campo x25">
+								<label for="info10"><i class="far fa-calendar-alt"></i> FECHA DEL ÚLTIMO VOLTEO</label>
+								<input type="text" value="<?php echo ($datosPilon['fuv'] == '') ? 'NO REGISTRADO' : $datosPilon['fuv']; ?>" name="info10" id="info10" disabled>
+							</div>
+							<div class="campo x25">
+								<label for="info11"><i class="fas fa-random"></i> PILÓN COMBINADO</label>
+								<input type="text" value="<?php echo ($datosPilon['combinado'] == '') ? 'NO' : $datosPilon['combinado']; ?>" name="info11" id="info11" disabled>
+							</div>
+							<div class="campo x25">
+								<label for="info12"><i class="far fa-calendar-alt"></i> FECHA DE COMBINACIÓN</label>
+								<input type="text" value="<?php echo ($datosPilon['f_com'] == '') ? 'NO REGISTRADO' : $datosPilon['f_com']; ?>" name="info12" id="info12" disabled>
+							</div>
+						</div>
+
+						<h3>LÍMITE DE MAGNITUDES</h3>
+						<div class="vertical">
+							<div class="campo x25">
+								<label for="info13"><i class="fas fa-thermometer-half"></i> TEMPERATURA MÍNIMA (°C)</label>
+								<input type="text" value="<?php echo $datosPilon['tmin']; ?>" name="info13" id="info13" disabled>
+							</div>
+							<div class="campo x25">
+								<label for="info14"><i class="fas fa-thermometer-full"></i> TEMPERATURA MÁXIMA (°C)</label>
+								<input type="text" value="<?php echo $datosPilon['tmax']; ?>" name="info14" id="info14" disabled>
+							</div>
+							<div class="campo x25">
+								<label for="info15"><i class="fas fa-cloud-download-alt"></i> HUMEDAD MÍNIMA (%)</label>
+								<input type="text" value="<?php echo $datosPilon['hmin']; ?>" name="info15" id="info15" disabled>
+							</div>
+							<div class="campo x25">
+								<label for="info16"><i class="fas fa-cloud-upload-alt"></i> HUMEDAD MÁXIMA (%)</label>
+								<input type="text" value="<?php echo $datosPilon['hmax']; ?>" name="info16" id="info16" disabled>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<!--INFORMACIÓN DE VOLTEO-->
+				<div id="indicador-volteo" class="fila">
+				</div>
+
+				<!--INFORMACIÓN DE PERTENENCIA-->
+				<?php
+					if($edo_pilon == 4 || $edo_pilon == 5) {
+						?>
+							<div class="fila ins">
+								<div class="folding">
+									<div class="info-block">
+										<h3>PILÓN GENERADO POR COMBINACIÓN</h3>
+										<p>INFORMACIÓN DE LOS PILONES COMBINADOS</p>
+										
+										<div id="lista_pilones" class="block-hidden">
+											<div class="fila">
+												<h3>LISTA DE PILONES DEL CUAL SE GENERÓ ESTE PILÓN</h3>	
+												<p>MOSTRANDO LOS PILONES DE ORIGEN</p>
+											</div>
+
+											<div class="fila">
+												<div class="tabla">
+													<table>
+														<thead>
+															<tr>
+																<th>PILÓN</th>
+																<th>ÁREA</th>
+																<th>CLASE</th>
+																<th class="acciones">ACCIONES</th>
+															</tr>
+														</thead>
+														<tbody>
+															<?php
+																while($datos_subclases = mysqli_fetch_array($con_pilones)) {
+																	?>
+																		<tr>
+																			<td><?php echo $datos_subclases['pilon']; ?></td>
+																			<td><?php echo $datos_subclases['area']; ?></td>
+																			<td><?php echo $datos_subclases['clase']; ?></td>
+																			<td class="acciones">
+																				<a title="PERFIL DEL PILÓN" href="Pilon.php?idpilon=<?php echo($datos_subclases['idpilon']); ?>" class='enlace completo'>
+																					<i class="fas fa-bars fa-fw"></i>
+																				</a>
+																			</td>
+																		</tr>
+																	<?php
+																}
+															?>
+														</tbody>
+													</table>
+												</div>
+											</div>
+										</div>
+									</div>
+
+									<i target="lista_pilones" title="MOSTRAR CONTENIDO" class="fas fa-chevron-down fa-fw btn-folding"></i>
+								</div>
+							</div>
+						<?php
+					}
+				?>
+
+				<!--SUBCLASES VINCULADAS-->
+				<div class="fila ins">
+					<div class="folding">
+						<div class="info-block">
+							<h3><?php echo ($numSub == 1 ? $numSub.' SUBCLASE VINCULADA' : $numSub.' SUBCLASES VINCULADAS'); ?></h3>
+							<p>INFORMACIÓN RELACIONADA</p>
+							
+							<div id="subclasesPilon" class="block-hidden">
+								<?php
+									if($datosPilon['estado'] <> 6) {
+										?>
+											<div class="fila">
+												<div class="fila">
+													<h3>GRÁFICO DE COMPOSICIÓN RELATIVA</h3>
+													<p>ESTE GRÁFICO INDICA LA PROPORCIÓN ACTUAL DEL PILÓN DEL CUAL UNA SUBCLASE FORMA PARTE</p>
+												</div>
+
+												<div class="fila">
+													<div id="area-grafico-subclases" class="chart-container">
+														<canvas id="graficoSubclases"></canvas>
+													</div>
+												</div>
+											</div>
+										<?php
+									}
+								?>
+								<div class="fila">
+									<div class="fila">
+										<h3>SUBCLASES VINCULADAS</h3>	
+										<p>MOSTRANDO LA LISTA DE SUBCLASES VINCULADAS AL PILÓN ACTUALMENTE</p>
+									</div>
+									
+									<div class="fila tabla">
+										<table>
+											<thead>
+												<tr>
+													<th>CLASE</th>
+													<th>SUBCLASE</th>
+													<th>PROCEDENCIA</th>
+													<th>COSECHA</th>
+													<th>CORTE</th>
+													<th>P. INICIAL (KG)</th>
+													<th>P. ACTUAL (KG)</th>
+												</tr>
+											</thead>
+											<tbody>
+												<?php
+													while ($rowSub = mysqli_fetch_array($subPilon)) {
+														?>
+															<tr>
+																<td><?php echo $rowSub["clase"]; ?></td>
+																<td><?php echo $rowSub["subclase"]; ?></td>
+																<td><?php echo $rowSub["pro"]; ?></td>
+																<td><?php echo $rowSub["cosecha"]; ?></td>
+																<td><?php echo $rowSub["n_corte"]; ?></td>
+																<td><?php echo $rowSub["p_inicial"]; ?></td>
+																<td><?php echo $rowSub["p_actual"]; ?></td>
+															</tr>
+														<?php
+													}
+												?>
+											</tbody>
+										</table>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<i target="subclasesPilon" title="MOSTRAR CONTENIDO" class="fas fa-chevron-down fa-fw btn-folding"></i>
+					</div>
+				</div>
+			
+				<!--CONFIGURACIÓN-->
+				<div id="seccion-configuracion" class="oculto">
+					<div class="fila">
+						<h3>
+							REGISTROS
+						</h3>
+						<p>
+							SELECCIONAR UN INTERVALO DE TIEMPO PARA MOSTRAR LOS DATOS, CONSIDERA LOS 3 TIPOS DE DATOS QUE PUEDES OBSERVAR (REGISTROS, PROCESOS Y SALIDAS)
+						</p>
+					</div>
+
+					<div class="fila nota adv-text">
+						<p>
+							SECCIONA UN INVERVALO ENTRE <b id="data-inicial" class="icon-fecha area">F_INICIAL</b> Y <b id="data-final" class="icon-fecha area">F_FINAL</b>, TEN EN CUENTA QUE COMO MÍNIMO DEBE HABER <b>5 DÍAS</b> DE DIFERENCIA Y COMO MÁXIMO <b>62 DÍAS</b>
+						</p>
+					</div>
+
+					<!--SECCIÓN PARA EL MENSAJE-->
+					<div id="msgConf">
+					</div>
+
+					<form id="fechasConfig" action="#">
+						<div class="fila">
+							<div id="mensajePeriodo" class="mensajes"></div>
+
+							<div class="float">
+								<div class="campo x40">
+									<label for="f_inicial">FECHA INICIAL</label>
+									<input class="validate[required, custom[fecha]]" type="date" name="f_inicial" id="f_inicial">
+								</div>
+								
+								<div class="campo x40">
+									<label for="f_final">FECHA</label>
+									<input class="validate[required, custom[fecha]]" type="date" name="f_final" id="f_final">
+								</div>
+
+								<div class="campo x20">
+									<label for="#"><br></label>
+									<button type="submit" class="colS colPH">
+										<i id="iconRango" class="fas fa-check"></i> SELECCIONAR
+									</button>
+								</div>
+							</div>
+						</div>
+					</form>
+				</div>
+
+				<!--INDICADOR DE FECHAS-->
+				<div id="indicador-intervalo" class="oculto">
+					<p>MOSTRANDO DATOS DEL <b id="fecha_inf"></b> AL <b id="fecha_sup"></b></p>
+				</div>
+
+				<!--CONTENEDOR DE DATOS DE MUESTRA-->
+				<div id="tabs_content" class="oculto">
+					<div class="tabs_header">
+						<div class="tab_layout">
+							<div class="tab_element" id="tab-registros" title="REGISTROS DE MEDICIONES DEL PILÓN" id_tab="seccion-grafico">
+								<i class="fas fa-chart-area fa-fw"></i><p>REGISTROS<span class="num_icon colO" id="num_reg">0</span></p>
+							</div>
+							
+							<div class="tab_element" id="tab-procesos" title="PROCESOS ADICONALES APLICADOS AL PILÓN EN UN PERIODO DETERMINADO" id_tab="seccion-procesos">
+								<i class="fas fa-certificate fa-fw"></i><p>PROCESOS<span class="num_icon colO" id="num_pro">0</span></p>
+							</div>
+							
+							<div class="tab_element" id="tab-salidas" title="SALIDAS DE TABACO RESPECTO AL PILÓN REGISTRADAS EN EL PERIODO INDICADO" id_tab="seccion-salidas">
+								<i class="fas fa-angle-double-right fa-fw"></i><p>SALIDAS<span class="num_icon colO" id="num_sal">0</span></p>
+							</div>
+						</div>
+					</div>
+
+					<div class="tabs_body">
+						<!--ICONO DE SELECCIÓN DE INTERVALO-->
+						<div class="tab activo" id="select-tab">
+							<div class="icon-load">
+								<i id="icon-select-tab" class="far fa-calendar-alt fa-fw"></i>
+								<p id="text-select-tab">SELECCIONA UN PERIODO DE TIEMPO PARA MOSTRAR LOS DATOS</p>
+							</div>
+						</div>
+
+						<!--INDICADOR DE CARGA DE DATOS-->
+						<div class="tab" id="load-tab">
+							<div class="icon-load">
+								<i id="icon-load-tab" class="fas fa-spinner fa-spin fa-fw"></i>
+								<p id="text-load-tab">CARGANDO DATOS</p>
+							</div>
+						</div>
+						
+						<!--INDICADOR DE DATOS VACÍOS-->
+						<div class="tab" id="empty-tab">
+							<div class="icon-load">
+								<i id="icon-empty-tab" class="far fa-list-alt fa-fw"></i>
+								<p id="text-empty-tab">SIN REGISTROS</p>
+							</div>
+						</div>
+
+						<!--GRÁFICO-->
+						<div class="tab" id="seccion-grafico">
+							<div class="fila">
+								<h3>
+									GRÁFICO DE MEDICIONES Y REGISTRO DE EVENTOS
+								</h3>
+								<p>
+									LA INFORMACIÓN MOSTRADA A CONTINUACIÓN DESCRIBE EL COMPORTAMIENTO DE LAS MAGNITUDES FÍSCAS DEL PILÓN ASÍ COMO EL REGISTRO DE EVENTOS DEL MISMO
+								</p>
+							</div>
+
+							<div class="fila">
+								<div class="grid">
+									<!--SECCIÓN DE VALORES DE DATOS-->
+									<div id="valores-content" class="x100">
+										<div class="valStats">
+											<div id="valores-minimos"  class="v-content">
+												<div class="v-titulo colP">
+													<p>VALORES MÍNIMOS</p>
+												</div>
+
+												<div class="v-cuerpo">
+													<div class="v-con-align">
+														<div class="v-campo temp">
+															<div class="v-val-titulo">TEMPERATURA (°C)</div>
+															<div id="temp-min" class="v-val-valor">99°</div>
+														</div>
+
+														<div class="v-campo hum">
+															<div class="v-val-titulo">HUMEDAD (%)</div>
+															<div id="hum-min" class="v-val-valor">99%</div>
+														</div>
+													</div>
+												</div>
+											</div>
+
+											<div id="valores-maximos" class="v-content">
+												<div class="v-titulo colP">
+													<p>VALORES MÁXIMOS</p>
+												</div>
+
+												<div class="v-cuerpo">
+													<div class="v-con-align">
+														<div class="v-campo temp">
+															<div class="v-val-titulo">TEMPERATURA (°C)</div>
+															<div id="temp-max" class="v-val-valor">99°</div>
+														</div>
+
+														<div class="v-campo hum">
+															<div class="v-val-titulo">HUMEDAD (%)</div>
+															<div id="hum-max" class="v-val-valor">99%</div>
+														</div>
+													</div>
+												</div>
+											</div>
+
+											<div id="valores-promedio" class="v-content">
+												<div class="v-titulo colP">
+													<p>VALORES PROMEDIO</p>
+												</div>
+
+												<div class="v-cuerpo">
+													<div class="v-con-align">
+														<div class="v-campo temp">
+															<div class="v-val-titulo">TEMPERATURA (°C)</div>
+															<div id="temp-prom" class="v-val-valor">99°</div>
+														</div>
+
+														<div class="v-campo hum">
+															<div class="v-val-titulo">HUMEDAD (%)</div>
+															<div id="hum-prom" class="v-val-valor">99%</div>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+										
+									<!--SECCIÓN DEL GRÁFICO DE REGISTROS-->
+									<div id="grafico-regs-content" class="grafico graAjus sizeGra x70">
+										<div class="chart-container">
+											<canvas id="graphRegs"></canvas>
+										</div>
+									</div>
+									
+									<!--SECCIÓN DE EVENTOS-->
+									<div id="eventos-content" class="graAjus sizeGra x30">
+										<div class="eventos">
+											<div class="e-titulo colP">
+												<h5>EVENTOS</h5>
+											</div>
+
+											<div id="eventos-cuerpo" class="e-cuerpo"></div>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<!--PROCESOS ADICIONALES-->
+						<div class="tab" id="seccion-procesos">
+							<div class="fila">
+								<h3>
+									PROCESOS ADICIONALES APLICADOS
+								</h3>
+								<p>
+									MOSTRANDO LOS PROCESOS ADICIONALES APLICADOS AL PILÓN EN EL PERIODO DE TIEMPO SELECCIONADO PREVIAMENTE
+								</p>
+							</div>
+
+							<div class="fila">
+								<div class="vertical">
+									<div class="col-pro fumigado" title="FUMIGADO"></div>
+									<div class="col-pro humectado" title="HUMECTADO"></div>
+									<div class="col-pro lavado" title="LAVADO"></div>
+									<div class="col-pro lavado-medio" title="LAVADO AL 50%"></div>
+									<div class="col-pro lavado-mezcla" title="LAVADO CON MEZCLA"></div>
+									<div class="col-pro oreado" title="OREADO"></div>
+									<div class="col-pro tendido" title="TENDIDO"></div>
+									<div class="col-pro limpiado" title="LIMPIADO"></div>
+									<div class="col-pro volteado" title="VOLTEADO"></div>
+									<div class="col-pro rehubicado" title="REHUBICADO"></div>
+									<div class="col-pro empacado" title="EMPACADO"></div>
+									<div class="col-pro terminado" title="TERMINADO"></div>
+								</div>
+							</div>
+
+							<div class="fila">
+								<div class="procesos">
+									<div id="procesos-cuerpo" class="lista"></div>
+								</div>
+							</div>
+						</div>
+
+						<!--SALIDAS-->
+						<div class="tab" id="seccion-salidas">
+							<div class="fila">
+								<h3>
+									SALIDAS DE TABACO POR SUBCLASES
+								</h3>
+								<p>
+									DESCRIPCIÓN DE LA SALIDA DE TABACO DE ACUERDO A LAS SUBCLASES QUE COMPONEN EL PILÓN
+								</p>
+							</div>
+
+							<div class="fila tabla">
+								<table>
+									<thead>
+										<tr>
+											<th>SUBCLASE</th>
+											<th>P. INICIAL (KG)</th>
+											<th>P. ACTUAL (KG)</th>
+											<th>SALIDA</th>
+											<th>F. SALIDA</th>
+											<th>OPERADOR</th>
+											<th>OBSERVACIONES</th>
+										</tr>
+									</thead>
+									<tbody id="salidas-cuerpo"></tbody>
+								</table>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</section>
+		
+	<?php
+		include("general/footer.php");
+	?>
+</body>
+</html>
