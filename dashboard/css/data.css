@@ -30,6 +30,19 @@
 	font-weight: 600;
 }
 
+.texto_mediano {
+	font-size: var(--size-u4);
+}
+
+.texto_grande {
+	font-size: var(--size-u6);
+}
+
+/*Opacidades*/
+.opacidad_media {
+	opacity: 50%;
+}
+
 /*Gradientes*/
 .color_gradiente_01 {
 	background: var(--color-base-01);
