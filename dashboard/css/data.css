@@ -30,6 +30,23 @@
 	font-weight: 600;
 }
 
+/*Alineaciones*/
+.texto_centrado {
+	text-align: center;
+}
+
+.texto_izquierda {
+	text-align: left;
+}
+
+.texto_derecha {
+	text-align: right;
+}
+
+.texto_justificado {
+	text-align: justify;
+}
+
 .texto_mediano {
 	font-size: var(--size-u4);
 }
@@ -229,3 +246,12 @@
 .color_fondo_22 { background-color: var(--color-base-22); }
 .color_fondo_23 { background-color: var(--color-base-23); }
 .color_fondo_24 { background-color: var(--color-base-24); }
+
+/*Niveles*/
+.color_fondo_premium {
+	background-color: var(--color-primario);
+}
+
+.color_fondo_gratuito {
+	background-color: var(--color-base-16);
+}
