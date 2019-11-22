@@ -16,6 +16,7 @@
 	--color-claro-contraste: #FCFCFC;
 	--color-oscuro: #787993;
 	--color-oscuro-contraste: #444444;
+	--color-deshabilitado: #E9E9E9;
 
 	/*Colores generales como recursos*/
 	--color-base-01: #F18DEA;
@@ -537,7 +538,7 @@ canvas {
 	}
 
 		.switch_input:checked + .switch_label:before {
-			background-color: var(--color-oscuro);
+			background-color: var(--color-deshabilitado);
 		}
 		
 		.switch_input:checked + .switch_label:after {
@@ -558,7 +559,7 @@ canvas {
 			left: 0;
 			width: var(--size-u4);
 			height: var(--size-u2);
-			background-color: var(--color-oscuro);
+			background-color: var(--color-deshabilitado);
 			border-radius: var(--size-u2);
 			z-index: 1;
 			transition: background-color 0.28s cubic-bezier(0.4, 0, 0.2, 1);
@@ -571,12 +572,10 @@ canvas {
 			left: 0;
 			width: var(--size-u2);
 			height: var(--size-u2);
-			background-color: var(--color-claro);
+			background-color: var(--color-oscuro);
 			border-radius: 50%;
 			box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 3px 1px -2px rgba(0, 0, 0, 0.2), 0 1px 5px 0 rgba(0, 0, 0, 0.12);
 			z-index: 2;
 			transition: all 0.28s cubic-bezier(0.4, 0, 0.2, 1);
 			transition-property: left, background-color;
 		}
-	
-	
