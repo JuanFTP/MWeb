@@ -45,6 +45,7 @@
 	--color-base-24: #C0E8FB;
 
 	/*Dimensiones*/
+	--size-scrollbar: 6px;
 	--size-ancho-menu-lateral: 250px;
 	--size-alto-titulo-marca: 100px;
 	--size-border-radius: 10px;
@@ -72,12 +73,28 @@
 
 	/*Tamaño de bordes*/
 	--borde-size-general: 1px;
+	--borde-size-scrollbar: 3px;
 	--borde-color-general: rgba(0, 0, 0, 0.1);
 
 	/*Transiciones*/
 	--transicion: all ease 0.25s;
 }
 
+/*Scroll*/
+::-webkit-scrollbar {
+	width: var(--size-scrollbar);
+}
+
+::-webkit-scrollbar-track {
+	background: var(--color-deshabilitado);
+	border-radius: var(--borde-size-scrollbar);
+}
+
+::-webkit-scrollbar-thumb {
+	background: var(--color-oscuro);
+	border-radius: var(--borde-size-scrollbar);
+}
+ 
 /*Generales*/
 .alineador_horizontal {
 	display: flex;
@@ -477,8 +494,8 @@ canvas {
 		}
 
 			.tabla table thead tr th {
-				padding-left: var(--size-u1);
-				padding-right: var(--size-u1);
+				padding-left: var(--size-u2);
+				padding-right: var(--size-u2);
 			}
 
 		.tabla table tbody {
@@ -490,8 +507,8 @@ canvas {
 			}
 
 				.tabla table tbody tr td {
-					padding-left: var(--size-u1);
-					padding-right: var(--size-u1);
+					padding-left: var(--size-u2);
+					padding-right: var(--size-u2);
 				}
 
 					.tabla table tbody tr td .avatar_usuario {
