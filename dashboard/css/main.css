@@ -49,6 +49,7 @@
 	--size-ancho-menu-lateral: 250px;
 	--size-alto-titulo-marca: 100px;
 	--size-border-radius: 10px;
+	--size-u05: 5px;
 	--size-u1: 10px;
 	--size-u2: 20px;
 	--size-u3: 30px;
@@ -428,6 +429,23 @@ canvas {
 		height: calc(100% - var(--size-u2));
 		width: 100%;
 	}
+
+		.grafico .cuerpo_grafico .graficos_barra {
+			width: 100%;
+			height: var(--size-u4);
+			margin: auto 0px;
+			background-color: red;
+		}
+		
+			.grafico .cuerpo_grafico .graficos_barra .grafico_barra {
+				height: var(--size-u1);
+				margin-bottom: var(--size-u05);
+				background-color: #000;
+			}
+
+				.grafico .cuerpo_grafico .graficos_barra .grafico_barra:last-child {
+					margin-bottom: 0px;
+				}
 
 /*Sector de stats por meses*/
 .trafico {
