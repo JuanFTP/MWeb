@@ -430,23 +430,6 @@ canvas {
 		width: 100%;
 	}
 
-		.grafico .cuerpo_grafico .graficos_barra {
-			width: 100%;
-			height: var(--size-u4);
-			margin: auto 0px;
-			background-color: red;
-		}
-		
-			.grafico .cuerpo_grafico .graficos_barra .grafico_barra {
-				height: var(--size-u1);
-				margin-bottom: var(--size-u05);
-				background-color: #000;
-			}
-
-				.grafico .cuerpo_grafico .graficos_barra .grafico_barra:last-child {
-					margin-bottom: 0px;
-				}
-
 /*Sector de stats por meses*/
 .trafico {
 	grid-gap: var(--size-u1);
