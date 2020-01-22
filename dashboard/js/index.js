@@ -15,10 +15,16 @@ $(document).ready(function() {
 
 	/*Primer mes*/
 	let grafico_primer_mes;
+	let grafico_segundo_mes;
+	let grafico_tercer_mes;
 	let data_primer_mes = [40, 85, 90];
+	let data_segundo_mes = [56, 78, 23];
+	let data_tercer_mes = [20, 54, 11];
 	let var_grafico_primer_mes = document.getElementById("grafico-primer-mes").getContext("2d");
-	let conf_data_primer_mes;
-	let conf_options_primer_mes;
+	let var_grafico_segundo_mes = document.getElementById("grafico-segundo-mes").getContext("2d");
+	let var_grafico_tercer_mes = document.getElementById("grafico-tercer-mes").getContext("2d");
+	let conf_data_graf_meses;
+	let conf_options_graf_meses;
 
 	/*Configuracion grafico principal*/
 	conf_data_principal = {
@@ -94,16 +100,16 @@ $(document).ready(function() {
 	};
 
 	/*Configuración grafioc primer mes*/
-	conf_data_primer_mes = {
+	conf_data_graf_meses = {
 		labels: label_grupo,
 		datasets: [{
-			data: data_primer_mes,
+			/*data: data_primer_mes,*/
 			backgroundColor: group_color,
-			borderWidth: 10.0
+			hoverBackgroundColor: group_color
 		}]
 	};
 
-	conf_options_primer_mes = {
+	conf_options_graf_meses = {
 		responsive: true,
 		responsiveAnimationDuration: 500,
 		maintainAspectRatio: false,
@@ -111,21 +117,17 @@ $(document).ready(function() {
 			display: false
 		},
 		tooltips: {
-			backgroundColor: "rgba(252, 252, 252, 0.9)",
-			titleFontColor: "#618EFF",
-			bodyFontColor: "#618EFF",
-			borderColor: "#618EFF",
-			borderWidth: 0.5,
-			xPadding: 10, 
-			yPadding: 10
+			enabled: false
 		},
 		scales: {
 			xAxes: [{
 				gridLines: {
-					display: false
+					display: false,
+					drawBorder: false
 				},
 				scaleLabel: {
-					display: false
+					display: false,
+
 				},
 				ticks: {
 					display: false,
@@ -134,11 +136,17 @@ $(document).ready(function() {
 				}
 			}],
 			yAxes: [{
+				barPercentage: 0.2,
+				categoryPercentage: 1.0,
 				gridLines: {
-					display: false
+					display: false,
+					drawBorder: false
 				},
 				ticks: {
-					display: true
+					fontFamily: 'Roboto Condensed',
+					fontColor: '#787993',
+					fontStyle: 'bold',
+					fontSize: 12.0
 				},
 				scaleLabel: {
 					display: false
@@ -157,8 +165,20 @@ $(document).ready(function() {
 	/*Gráficos de tráfico de datos por mes*/
 	grafico_primer_mes = new Chart(var_grafico_primer_mes, {
 		type: 'horizontalBar',
-		data: conf_data_primer_mes,
-		options: conf_options_primer_mes
+		data: conf_data_graf_meses,
+		options: conf_options_graf_meses
+	});
+
+	grafico_segundo_mes = new Chart(var_grafico_segundo_mes, {
+		type: 'horizontalBar',
+		data: conf_data_graf_meses,
+		options: conf_options_graf_meses
+	});
+
+	grafico_tercer_mes = new Chart(var_grafico_tercer_mes, {
+		type: 'horizontalBar',
+		data: conf_data_graf_meses,
+		options: conf_options_graf_meses
 	});
 	
 	/*ÁREA DE FUNCIONES*/
@@ -169,13 +189,14 @@ $(document).ready(function() {
 	}
 
 	/*Actualización de datos del grafico del primer mes*/
-	function setDataPrimerMes(data_fill) {
-		
+	function setDataMes(grafico, data_fill) {
+		grafico.data.datasets[0].data = data_fill;
+		grafico.update();
 	}
-
-	console.log(grafico_primer_mes);
 
 	/*Detonamiento de datos*/
 	setDataChart(data_principal);
-	setDataPrimerMes(data_primer_mes);
+	setDataMes(grafico_primer_mes, data_primer_mes);
+	setDataMes(grafico_segundo_mes, data_segundo_mes);
+	setDataMes(grafico_tercer_mes, data_tercer_mes);
 });
