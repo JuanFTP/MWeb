@@ -8,14 +8,13 @@
 	<!--Estilos-->
 	<link rel="stylesheet" href="./node_modules/@fortawesome/fontawesome-free/css/all.css">
 	<link rel="stylesheet" href="./css/main.css">
-	<link rel="stylesheet" href="./css/data.css">
 
 	<title>Dashboard</title>
 </head>
 <body>
 	<div class="contenedor_general">
 		<div class="alineador_horizontal">
-			<div class="menu_lateral">
+			<div id="menu-lateral" class="menu_lateral">
 				<div class="espacio_marca borde_inferior">
 					<div class="alineador_horizontal">
 						<div class="contenedor_logotipo">
@@ -199,13 +198,13 @@
 				</div>
 			</div>
 	
-			<div class="contenedor_datos">
+			<div id="contenedor-general" class="contenedor_datos">
 				<div class="header">
 					<div class="componentes_header">
 						<div class="alineador_horizontal distribuir_horizontalmente">
 							<div class="datos_usuario">
 								<div class="alineador_horizontal">
-									<div class="icono_usuario">
+									<div id="icono-usuario" class="icono_usuario">
 										<img src="./img/user/perfil.png" alt="Imagen de Perfil">
 									</div>
 
@@ -250,7 +249,7 @@
 
 				<div class="contenedor_secciones">
 					<div class="alineador_malla">
-						<div class="elemento grafico_datos color_fondo_claro sombra_all">
+						<div class="elemento grafico_datos color_fondo_claro sombra_all overflow hidden">
 							<div class="titulo_elemento texto_nivel_normal texto_estilo_negritas">
 								<div class="alineador_horizontal distribuir_horizontalmente">
 									<p class="color_texto_primario">Historico de Datos</p>
@@ -267,7 +266,7 @@
 							</div>
 						</div>
 
-						<div class="elemento trafico_datos color_fondo_claro sombra_all">
+						<div class="elemento trafico_datos color_fondo_claro sombra_all overflow hidden">
 							<div class="titulo_elemento texto_nivel_normal texto_estilo_negritas">
 								<div class="alineador_horizontal distribuir_horizontalmente">
 									<p class="color_texto_primario">Tráfico de Datos</p>
@@ -541,6 +540,5 @@
 	<script type="text/javascript" src="./node_modules/jquery/dist/jquery.js"></script>
 	<script type="text/javascript" src="./node_modules/chart.js/dist/Chart.js"></script>
 	<script type="text/javascript" src="./js/main.js"></script>
-	<script type="text/javascript" src="./js/index.js"></script>
 </body>
 </html>
