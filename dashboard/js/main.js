@@ -145,7 +145,6 @@ document.addEventListener("DOMContentLoaded", function() {
 				ticks: {
 					fontFamily: 'Roboto Condensed',
 					fontColor: '#787993',
-					fontStyle: 'bold',
 					fontSize: 12.0
 				},
 				scaleLabel: {
